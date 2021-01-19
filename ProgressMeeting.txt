@@ -1,0 +1,27 @@
+New instructions TALON:	
+	Understand the latency on streaming over mmWave (VR video)
+		Jakob has a model we should test?
+	
+	Assemble test bed -> Goal is to enable frame-by-frame streaming
+	
+	More detailed time line for setup. 
+	
+	
+	Beamforming latency vs direct link?
+	Blockage + movement and check impact on latency etc
+		--> These are factors that happen in use as a VR link, so must be acceptable performance
+	
+	Hard to modify beamforming behaviour on any router, so not really available on talon.
+	
+	Mail Maria for routing. 
+		Before meeting, send IPs/configuration.
+	
+	
+	Evaluate in VR frame-to-frame, judge performance.
+		More specific than iperf, apply real-world scenario.
+		
+	Judge mac layer by performance in application layer data. App layer is bursty (vr frames), mac layer loss is not sufficient
+	
+	
+	
+	ROUTING FAILURE: Ff checken. 
