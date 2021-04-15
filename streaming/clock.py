@@ -1,3 +1,9 @@
+# https://stackoverflow.com/questions/38319606/how-can-i-get-millisecond-and-microsecond-resolution-timestamps-in-python
+# Current implementation only has UNIX version. 
+# ping.py has windows code, from same answer
+# Probably worth merging both into this file.
+# TODO
+
 import ctypes
 import os
 CLOCK_MONOTONIC_RAW = 4

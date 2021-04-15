@@ -3,12 +3,17 @@ import socket
 
 from values import framesize
 from clock import now_us
+from values import receiver, port
 
 if __name__ == "__main__":
-	myip = '192.168.3.2'
-	port = 50000
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind((myip, port))
-	for _ in range(1600):
-		frame = s.recv(framesize)
+	s.bind((receiver, port))
+	s.listen(1)
+	soc, addr = s.accept()
+	for _ in range(loopLength):
+		frame = soc.recv(framesize)
+		while (len(frame) < framesize):
+			frame += soc.recv(framesize - len(frame))
 		print(f"Received frame at: {now_us()}")
+		soc.sendto(b'ACK', addr)
+		print(f"Sent ack at: {now_us()}")
