@@ -1,0 +1,30 @@
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         192.168.1.1     0.0.0.0         UG    101    0        0 enp42s0
+169.254.0.0     0.0.0.0         255.255.0.0     U     1000   0        0 enp42s0
+192.168.1.0     0.0.0.0         255.255.255.0   U     101    0        0 enp42s0
+192.168.2.1     192.168.200.1   255.255.255.255 UGH   0      0        0 enxd037451ece03
+192.168.2.2     192.168.200.2   255.255.255.255 UGH   0      0        0 enp6s0
+192.168.200.1   0.0.0.0         255.255.255.255 UH    0      0        0 enxd037451ece03
+192.168.200.2   0.0.0.0         255.255.255.255 UH    0      0        0 enp6s0
+192.168.200.3   192.168.200.2   255.255.255.255 UGH   0      0        0 enp6s0
+192.168.200.4   192.168.200.1   255.255.255.255 UGH   0      0        0 enxd037451ece03
+
+
+enxd037451ece03: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.200.3  netmask 255.255.255.0  broadcast 0.0.0.0
+        ether d0:37:45:1e:ce:03  txqueuelen 1000  (Ethernet)
+        RX packets 27100  bytes 6931720 (6.9 MB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 29857  bytes 2231527 (2.2 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+enp6s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.200.4  netmask 255.255.255.0  broadcast 0.0.0.0
+        ether 2c:f0:5d:8a:d3:59  txqueuelen 1000  (Ethernet)
+        RX packets 6932  bytes 1218086 (1.2 MB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 10647  bytes 977001 (977.0 KB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+
