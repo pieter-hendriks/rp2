@@ -1,0 +1,10 @@
+Investigate asymmetry and other current issues: Mid february
+(Faux) VR layer specification: Late february
+VR traffic emulator implementation: Mid march
+Buffer/debug time: End of march
+Application layer requirement specification: Mid april
+Results under specified requirements: Late april
+Experiments with movement/obstacles: Mid may
+Paper finalizing: Late may
+Buffer/debug time: Mid june
+
