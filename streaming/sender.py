@@ -1,7 +1,7 @@
 import os
 import socket
 import time
-from matplotlib import plot as plt
+import matplotlib.pyplot as plt
 from values import frame, frametime, ackLength, loopLength, sender, receiver, port
 
 if __name__ == "__main__":
