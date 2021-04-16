@@ -19,7 +19,7 @@ if __name__ == "__main__":
 			while (len(frame) < framesize):
 				frame += soc.recv(framesize - len(frame))
 			# Send the ack
-			soc.sendto(b'ACK', addr)
+			soc.sendto(ackmsg, addr)
 			# Add frame to received total size
 			total += len(frame)
 		# Record end time and output data
