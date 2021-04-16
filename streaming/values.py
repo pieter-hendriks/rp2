@@ -14,4 +14,4 @@ sender = '192.168.4.2'
 receiver = '192.168.3.2'
 port = 50000
 
-loopLength = 1600
+loopLength = 160
