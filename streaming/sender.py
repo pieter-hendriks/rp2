@@ -19,7 +19,7 @@ if __name__ == "__main__":
 			exit(1)
 
 		print(f"Sent frame at {time.time()}")
-		ack = s.recvmsg(ackLength)
+		ack = s.recv(ackLength)
 		print(f"Received {ack} at {time.time()}")
 
 		while (start + frametime > time.time()):
