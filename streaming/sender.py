@@ -2,10 +2,7 @@ import os
 import socket
 import time
 
-from clock import now_us
-
-from values import frame, frametime, ackLength, loopLength
-from values import sender, receiver, port
+from values import frame, frametime, ackLength, loopLength, sender, receiver, port
 
 if __name__ == "__main__":
 	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
@@ -15,17 +12,17 @@ if __name__ == "__main__":
 	s.bind((sender, port))
 	s.connect((receiver, port))
 	for i in range(loopLength):
-		start = now_us()
+		start = time.time()
 		ret = s.sendall(frame)
 		if ret is not None:
 			print(ret)
 			exit(1)
 
-		print(f"Sent frame at {now_us()}")
+		print(f"Sent frame at {time.time()}")
 		ack = s.recv(ackLength)
-		print(f"Received {ack}")
+		print(f"Received {ack} at {time.time()}")
 
-		while (start + frametime > now_us()):
+		while (start + frametime > time.time()):
 			time.sleep(0.001)
 		print(i)
 

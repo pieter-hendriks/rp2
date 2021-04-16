@@ -1,4 +1,6 @@
 import os
+
+
 framerate = 80; frametime = 1/framerate
 datarate = 300000
 framesize = int(datarate / framerate + 0.5)

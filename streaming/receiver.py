@@ -1,9 +1,7 @@
 import os
 import socket
 
-from values import framesize
-from clock import now_us
-from values import receiver, port
+from values import framesize, receiver, port
 
 if __name__ == "__main__":
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -14,6 +12,6 @@ if __name__ == "__main__":
 		frame = soc.recv(framesize)
 		while (len(frame) < framesize):
 			frame += soc.recv(framesize - len(frame))
-		print(f"Received frame at: {now_us()}")
+		print(f"Received frame at: {time.time()}")
 		soc.sendto(b'ACK', addr)
-		print(f"Sent ack at: {now_us()}")
+		print(f"Sent ack at: {time.time()}")
