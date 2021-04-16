@@ -14,8 +14,8 @@ if __name__ == "__main__":
 	s.connect((receiver, port))
 	for i in range(loopLength):
 		start = time.time()
-		ret = s.sendall(frame)
 		sentTime = time.time()
+		ret = s.sendall(frame)
 		if ret is not None:
 			print(ret)
 			exit(1)
@@ -23,14 +23,16 @@ if __name__ == "__main__":
 		ack = s.recv(ackLength)
 		ackTime = time.time()
 		times.append((sentTime, ackTime))
-		while (start + frametime > time.time()):
-			time.sleep(0.001)
+		#while (start + frametime > time.time()):
+		#	time.sleep(0.001)
 		print(i)
 
 
-		fig, ax = plt.subplots()
-		ax.set(xlabel='Frame #', ylabel='Latency (ms)', title='Frame transmission latency over 60GHz')
-		ax.grid()
-		ax.plot([i for i in range(160)], [y - x for x, y in times], legend="Delay between frame transmission start and ACK reception")
-		plt.legend()
-		plt.show()
+
+	fig, ax = plt.subplots()
+	ax.set(xlabel='Frame #', ylabel='Latency (ms)', title='Frame transmission latency over 60GHz')
+	ax.grid()
+	ax.plot([i for i in range(loopLength)], [y - x for x, y in times], label="Observed latency")
+	ax.plot([i for i in range(loopLength)], [frametime for _ in range(loopLength)], label="Frametime")
+	plt.legend()
+	plt.show()
