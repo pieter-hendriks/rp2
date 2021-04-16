@@ -36,13 +36,14 @@ elif os.name == 'posix':
 	clock_gettime = librt.clock_gettime
 	# Specify input arguments
 	clock_gettime.argtypes = [ctypes.c_int, ctypes.POINTER(timespec)]
-
 	def now_s():
 		# Current time in seconds
 		t = timespec()
 		if clock_gettime(CLOCK_MONOTONIC_RAW, ctypes.pointer(t)) != 0:
 			errno_ = ctypes.get_errno()
 			raise OSError(errno_, os.strerror(errno_))
+		print(t.tv_sec)
+		print(t.tv_nsec * 1e-9)
 		return t.tv_sec + t.tv_nsec * 1e-9
 
 	def now_us():
