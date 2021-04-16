@@ -9,9 +9,9 @@ if __name__ == "__main__":
 	s.listen(1)
 	soc, addr = s.accept()
 	for _ in range(loopLength):
-		frame = soc.recv(framesize)
-		while (len(frame) < framesize):
-			frame += soc.recv(framesize - len(frame))
+		frame = soc.recvmsg(framesize)
+		#while (len(frame) < framesize):
+		#	frame += soc.recv(framesize - len(frame))
 		print(f"Received frame at: {time.time()}")
 		soc.sendto(b'ACK', addr)
 		print(f"Sent ack at: {time.time()}")
