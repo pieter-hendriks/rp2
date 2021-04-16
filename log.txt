@@ -1,0 +1,18 @@
+RP2 ping instability testing - seems to be a constant, hard to fix. Even during constant traffic, ping remains unstable.
+	- Further testing ping instability
+			--> Unsure how to proceed - inconsistency stays when iperfing/flooding
+			--> A little less spiky, definitely less linear
+			--> But, inconsistent nonetheless.
+			--> Ping both directions maintains pattern, limits max to ~100 ms
+			--> qu'est ce que le fuck 
+RP2 throughput testing - one router seems faster than the other or something. This is probably the cause of all observed assymetry. 
+	- Verify symmetrical throughput
+			--> Might be AP related? Happens when iperfing router to router as well
+			--> Must configure other AP as router and see what happens
+				--> (3.1 AP): 3.1 iperf srv > 4.1 iperf srv
+				--> (4.1 AP): 3.1 iperf src > 4.1 iperf srv
+					--> One router better than the other one? Not sure what to make of this. 
+
+Reworked frame sender to use python time.time()
+	--> This is sufficiently precise on UNIX (Ubuntu) but precision is lacking on Windows implementation (Or, well, sleep precision is. Actually not sure what precision time.time() has on windows systems)
+	-->
