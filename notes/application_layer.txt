@@ -1,0 +1,11 @@
+-> UDP channel for video frames
+-> TCP control channel
+-> Use TCP control channel to report UDP performance
+	--> This over TCP video frames because re-transmitting failed frame is generally not worth it
+	--> Causes increases in latency that are undesirable - would prefer to simply have data be out of date for 1 frame and update it in the next one.
+	--> Need some mechanism of ensuring frame data gets updated though - if some blocks get dropped repeatedly - bad experience.
+
+
+
+-> Partial degradation of throughput performance in our case because of MSS limits: mmWave supports up to 7912 MTU, whereas ethernet TCP has MTU of 1500 bytes. This is probably part of reason why we see large throughput degradation when moving from talon->talon testing to pc->pc testing
+-> 
