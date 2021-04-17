@@ -1,7 +1,7 @@
 import os
 import socket
 import time
-from values import framesize, receiver, port, loopLength, framerate
+from values import *
 
 if __name__ == "__main__":
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
