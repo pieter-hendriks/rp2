@@ -1,4 +1,4 @@
-from icmplib import ICMPv4Socket, ICMPRequest, ICMPReply
+from icmplib import ICMPv4Socket, ICMPRequest, ICMPReply, TimeoutExceeded
 import ctypes, sys, os
 import time
 from matplotlib import pyplot as plt
@@ -8,42 +8,41 @@ import concurrent.futures
 
 destination = '192.168.2.2'
 source = '192.168.3.2'
-def now_us():
-	# Return current time stamp in microseconds
-	tics = ctypes.c_int64()
-	freq = ctypes.c_int64()
-
-	#get ticks on the internal ~2MHz QPC clock
-	ctypes.windll.Kernel32.QueryPerformanceCounter(ctypes.byref(tics)) 
-	#get the actual freq. of the internal ~2MHz QPC clock
-	ctypes.windll.Kernel32.QueryPerformanceFrequency(ctypes.byref(freq))  
-
-	t_us = tics.value*1e6/freq.value
-	return t_us
-	
-def sender(socket, count, sleeptime_us = 5000):
+def sender(socket, count, sleeptime = 0):
 	sendTimes = []
 	for i in range(count):
-		req = ICMPRequest(destination, 0, i)
+		#print(f"Sending {i}")
+		req = ICMPRequest(destination, 12354, i)
 		socket.send(req)
 		sendTimes.append(req.time)
-		before = now_us()
-		while (before + sleeptime_us > now_us()):
+		before = time.time() 
+		while (before + sleeptime > time.time()):
 			time.sleep(0)
-		after = now_us()
-		print((after - before)/1000000.0)
+		after = time.time()
 	return sendTimes
 
 def receiver(socket, count):
 	recvTimes = []
-	for _ in range(count):
-		recv = socket.receive()
-		recvTimes.append(recv.time)
+	for i in range(count):
+		recv = None
+		while not recv or recv.id != 12354:
+			try:
+				recv = socket.receive()
+				add = 0
+				while recv.bytes_received + add < 64: 
+					recv2 = socket.receive()
+					add = recv2.bytes_received
+					recv = recv2
+				recvTimes.append(recv.time)
+			except TimeoutExceeded:
+				recvTimes.append(None)
+		#print(f"Received {i}")
 	return recvTimes
 		
-def threaded_main():
+def main():
+	start = time.time()
 	socket = ICMPv4Socket(source)
-	count = 1000
+	count = 10000
 	with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
 		recvFuture = executor.submit(receiver, socket, count)
 		sendFuture = executor.submit(sender, socket, count)
@@ -56,37 +55,45 @@ def threaded_main():
 	recvTimes = sendFuture.result()
 	sendTimes = recvFuture.result()
 	latencies = [(x, y) for x,y in zip(sendTimes, recvTimes)]
+	count = len(latencies)
 	print(latencies)
+	latencies = [(x, y) for x,y in latencies if x is not None and y is not None]
+	dropped = count - len(latencies)
 	plt.plot([x[0] - x[1] for x in latencies])
+	stop = time.time()
+	print (f"Total program runtime was {stop - start:.2f} seconds.")
+	print (f"{dropped} packets out of {count} were dropped (and thus not graphed).")
 	plt.show()
 	
 
-def main():
-	socket = ICMPv4Socket(source)
-	latencies = []
-	for i in range(100):
-		req = ICMPRequest(destination, 0, i)
-		socket.send(req)
-		recv = socket.receive(req)
-		rtt = recv.time - req.time
-		#if (rtt < 0.01):
-		#	time.sleep(0.01 - rtt)
-		latencies.append((recv.time, req.time))
-	print(latencies)
-	plt.xlabel("Ping index")
-	plt.ylabel("RTT (ms)")
-	plt.plot([int((x[0] - x[1]) * 1000 + 0.5) for x in latencies])
-	plt.show()
-	
+
 def isAdmin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
+	if os.name=='nt':
+		try:
+				return ctypes.windll.shell32.IsUserAnAdmin()
+		except:
+				return False
+	elif os.name=='posix':
+		try:
+			return os.geteuid() == 0
+		except:
+			return False
+
+	else:
+		print("Unsure how to handle admin check on this OS.")
+		raise OSError("WOOPSIES")
 
 if __name__ == "__main__":
-	if isAdmin():
-		threaded_main()
-	else:
-		ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+	if not isAdmin():
+		if os.name == 'nt':
+			print("Not admin. Re-running as admin...")
+			ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+			exit(0)
+		elif os.name == 'posix':
+			print("Not sudo - re-running as sudo...")
+			args = ['sudo', sys.executable] + sys.argv + [os.environ]
+			os.execlpe('sudo', *args)
+			print(f"Current euid: {os.geteuid()}")
+	main()
+			
 		
