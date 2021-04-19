@@ -1,0 +1,76 @@
+Application layer requirements:
+	Must transmit full 360° degree video 
+		-to allow user to move head and update view without significant latency
+	1 frame received per 1/80 seconds, at least 
+		- satisfy 80 Hz requirement
+		- Sending more is better; display will update and use latest frame. 
+			- Either buffer 1 frame to display full frame (VSync) or deal with tearing
+			- In this case, rendering implementation not relevant so out of scope
+	Limited packet loss (preferably 0, < 0.5% acceptable)
+		- Else we'll get unacceptable video quality loss, leading to awful UX
+	Data rate requirement:   							  (hor X ver)
+		- 4k display needs 16k vr video (assuming display is 90° FoV, VR video is 360° x 180°)
+		- 16k video, aspect ratio 2:1 (360:180) = 16kx8k video
+		- 8kx4k@30 is 960 MB for 2:27. 16x8 = 4x 8x4 => 4x960 MB 
+			- worst case - most likely would allow better compression
+		- 3840 MB for 147 seconds@30 = 26.1224489796 MB/s ~= 210 Mbps 
+			--> But that is in case we are constantly transmitting, which we're not.
+			--> Video is bursty traffic, burst at each frame, then silent for a moment.
+		- Converting to 80 fps further adds to datarate requirement:
+			--> 8/3 * 210 = 560
+			--> 560 Mbps requirement. 
+			== 70MBps
+			-> 7e7 Bps
+				--> Not achievable in pc->pc use-case
+		--> Reduce to 60 fps => 5.25e7
+		--> 
+		- This calculation assumes we're able to use video compression and simply send that as required.
+			- Not valid if conversion happens as in Maria's example
+				-> It reads the video file, renders the frame, then encodes as jpg and sends jpg
+				-> This causes a higher actual data rate than is required by the video.
+			
+		- Conversion: 14745600 bytes per frame (Jpeg as text)
+			- 30 frames per second -> 14745600 * 30 = 442.36.. MBps
+			
+Headset with wider FoV => Reduced data rate requirement: Pixels cover more of the FoV so multiplier gets smaller.
+Headset with lower resolution => Reduced data rate req
+Lower fps => Lower data rate
+
+
+HP Reverb : 2160x2160, 90 Hz, 114° FoV
+Resolution requirement: 180/114 * 2160 vertical
+			360/114 * 2160 horizontal 
+			= 6820 * 3410
+	6820*3410 / (7680*4320) = ~0.7 (0.70096088927) = (23256200 / 33177600)
+	90Hz = *3
+	==> 26.1224489796 MB/s * (23256200 / 33177600) * 3 = ~55 MBps
+	5.5e7 Bps --> Probably still not ok for pc->pc (high-end was around ~500Mbps)
+	
+
+
+Focuses on 1:1 aspect ratio headsets for ease of math
+Can also do computation for different aspect ratios
+--> Shouldn't be super hard
+
+	
+	
+	
+	
+Source headset data;
+	""""
+	
+	HP Reverb[69][70][71]	2019-05-06[72]	Inside-out
+(2 cameras)
+
+LCD	N/A	2160x2160		18.94	1:1	90 Hz	114º	removable headphones, two integrated microphones, 3.5 mm audio jack		498 g[73]	$599 (consumer version)[73]
+$649 for pro
+
+No	Yes	No	No	Yes	Yes	No	6DoF dual controllers
+HP Reverb G2	2020-11-?[84]	Inside-out
+(4 cameras)
+
+LCD		2160x2160			1:1	90 Hz	114º	Off-ear speakers	DisplayPort 1.3, USB 3.0 type C, power adapter	499 g	$599	No	Yes	No	No	Yes	Yes	No	6DoF dual controllers tracked by HMD
+
+https://en.wikipedia.org/wiki/Comparison_of_virtual_reality_headsets
+	
+	""""

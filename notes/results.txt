@@ -1,0 +1,14 @@
+Ping:
+	flood, pc to pc over 60ghz
+		262199 packets transmitted, 262198 received, 0,00038139% packet loss, time 1604663ms
+		rtt min/avg/max/mdev = 0.636/7.178/338.796/8.660 ms, pipe 22, ipg/ewma 6.120/8.177 ms
+	--> Even with ping flood, latency still spikes. Spike in latency = bad UX.
+	--> To cover up to 400 ms, we'd need to buffer a lot of frames.
+	--> Not an issue in case of video, an issue in case of real-time rendering.
+
+Recorded throughput = 300000 kbit per second = 300 mbit per second
+	Was more on unix vs windows, but going for 300 mbit should be solid
+	Current implementation doesn't even come close to that - struggling to hit 300000 Bps = 300KBps = 2.4Mbps
+		--> Implementation problem! = Probably spend too much time waiting: Receiver waits for full frame reception, then sends ack. Sender waits for ack, then sends next frame
+		--> This is a lot of waiting: We may significantly improve performance by using multiple processes.
+		--> Behaviour using process messages probably slightly harder to implement, but definitely shouldn't be impossible!
