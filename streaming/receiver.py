@@ -3,6 +3,7 @@ import socket
 import time
 from values import *
 import multiprocessing as mp
+import struct
 
 def ntpFn():
 	pass
@@ -14,6 +15,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
 	s.bind((receiver, udpport))
+	carryover = None
 	while True:
 		try:
 			# Check for control message
@@ -25,14 +27,32 @@ def udpFn(ctrlPipe: mp.Pipe):
 					ctrlPipe.send(exitString)
 					ctrlPipe.close()
 					break
-			# Try to receive, will throw socket.timeout if no content
-			content = s.recv(8192)
+			# Mark in case last segment is dropped
+			if carryover is not None:
+				# Try to receive, will throw socket.timeout if no content
+				content = s.recv(1500)
+			else:
+				content = carryover
+			index = struct.unpack('>I', content[:4])
+			if index != 0:
+				ctrlPipe.send(PARTIALFRAME)
 			# When we've received anything, block for a bit to receive all parts of the message
 			s.setblocking(True)
 			s.settimeout(0.3)
 			try:
-				while (len(content) < framesize):
-					content += s.recv(8192)
+				while True:
+					marked = False
+					previous = index
+					recv = s.recv(1500)
+					index = struct.unpack('>I', recv[:4])
+					content += recv[4:]
+					if (index != previous + 1 and not marked):
+						ctrlPipe.send(PARTIALFRAME)
+						marked = True
+					if (index == len(frameSegments) - 1):
+						break
+					
+					
 			except socket.timeout as e:
 					# Report error if we encounter one (Packet dropped)
 					ctrlPipe.send(PARTIALFRAME)
