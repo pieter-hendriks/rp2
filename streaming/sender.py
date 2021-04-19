@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from values import *
 from ntp import ntpserver
 import struct
+import multiprocessing as mp
 
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
