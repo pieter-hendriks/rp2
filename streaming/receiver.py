@@ -28,12 +28,14 @@ def udpFn(ctrlPipe: mp.Pipe):
 					ctrlPipe.close()
 					break
 			# Mark in case last segment is dropped
-			if carryover is not None:
+			if carryover is None:
 				# Try to receive, will throw socket.timeout if no content
 				content = s.recv(1500)
 			else:
 				content = carryover
-			index = struct.unpack('>I', content[:4])
+				carryover = None
+			frameid = struct.unpack('>I', content[:4])
+			index = struct.unpack('>I', content[4:8])
 			if index != 0:
 				ctrlPipe.send(PARTIALFRAME)
 			# When we've received anything, block for a bit to receive all parts of the message
@@ -44,15 +46,23 @@ def udpFn(ctrlPipe: mp.Pipe):
 					marked = False
 					previous = index
 					recv = s.recv(1500)
-					index = struct.unpack('>I', recv[:4])
-					content += recv[4:]
-					if (index != previous + 1 and not marked):
+					segmentframeid = struct.unpack('>I', recv[:4])
+					index = struct.unpack('>I', recv[4:8])
+					if segmentframeid != frameid:
 						ctrlPipe.send(PARTIALFRAME)
-						marked = True
+						carryover = recv
+						break
+					if (index != previous + 1):
+						count = index - previous
+						# In actual implementation, we probably use some sort of storage to indicate we skip those bytes. 
+						# And re-use the previous frame's values
+						content += bytes(count * frameSegmentSize)
+						if not marked:
+							ctrlPipe.send(PARTIALFRAME)
+							marked = True
+					content += recv[8:]
 					if (index == len(frameSegments) - 1):
 						break
-					
-					
 			except socket.timeout as e:
 					# Report error if we encounter one (Packet dropped)
 					ctrlPipe.send(PARTIALFRAME)
@@ -60,6 +70,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# Report error, incorrect frame size received
 			if len(content) != framesize:
 				ctrlPipe.send(WRONGFRAMESIZE)
+
 			# Record frame reception time
 			ctrlPipe.send(FRAMERECEIVED + framesize.to_bytes(4, byteorder='big') + struct.pack('>d', time.time()))
 			# Then go back to non-blocking
