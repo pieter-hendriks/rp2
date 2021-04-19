@@ -2,33 +2,74 @@ import os
 import socket
 import time
 import matplotlib.pyplot as plt
-from values import frame, frametime, ackLength, loopLength, sender, receiver, port
+from values import *
+from ntp import ntpserver
+import struct
 
-if __name__ == "__main__":
-	times = []
-	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
+def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 0)
-	s.bind((sender, port))
-	s.connect((receiver, port))
+	s.bind((sender, tcpport))
+	s.connect((receiver, tcpport))
+	while True:
+		if ctrlPipe.poll():
+			msg = ctrlPipe.recv()
+			if msg[:len(UDPSENDTIME)] == UDPSENDTIME:
+				s.send(TCPFRAMEREPORT + framesize.to_bytes(4, byteorder='big') + msg[len(UDPSENDTIME):])
+		else:
+			# Poll the socket for messages
+			s.setblocking(False)
+			try:
+				recv = s.recv(4096)
+			except socket.timeout as e:
+				if e.args[0] != 'timed out':
+					print(f"Encountered unexpected error in tcp fn: {e}")
+			s.setblocking(True)
+		# If neither pipe nor socket has messages, yield thread
+		time.sleep(0.005)
+
+def udpFn(ctrlPipe):
+	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	s.bind((sender, udpport))
+	s.connect((receiver, udpport))
 	for i in range(loopLength):
-		start = time.time()
-		sentTime = time.time()
 		ret = s.sendall(frame)
+		ctrlPipe.send(UDPSENDTIME + struct.pack(">d", time.time()))
 		if ret is not None:
 			print(ret)
+			print("Sendall returned non-null value (shown above). Assuming this is an error, sender will exit ungracefully.")
+			ctrlPipe.send(exitString)
 			exit(1)
-
-		ack = s.recv(ackLength)
-		ackTime = time.time()
-		times.append((sentTime, ackTime))
-		#while (start + frametime > time.time()):
-		#	time.sleep(0.001)
-		print(i)
+		while (time.time() < frameStart + frametime):
+			time.sleep(0) # I sure hope this doesn't sleep for far too long.
+		print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.4f} seconds")
 
 
 
+if __name__ == "__main__":
+	# Create the NTP server process and its communication pipe
+	# ntpName = 'NTP server'
+	# ntpFnPipe, ntpMainPipe = mp.Pipe()
+	# ntpProcess = mp.Process(name=ntpName, target=ntpserver.runServer, args=(ntpFnPipe,))
+
+	# Then the UDP frame sender
+	udpName = 'UDP frame sender'
+	udpFnPipe, udpMainPipe = mp.Pipe()
+	udpProcess = mp.Process(name=udpName, target=udpFn, args=(udpFnPipe,))
+
+	# And finally tcp reporter
+	# tcpName = 'TCP reporting fn'
+	# tcpFnPipe, tcpMainPipe = mp.Pipe()
+	# tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe,))
+	
+	# Start the processes
+	processes = [(udpProcess, udpMainPipe)] # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
+	for p in processes:
+		p.start()
+	
+	while True:
+		time.sleep(1)
+	exit(0)
 	fig, ax = plt.subplots()
 	ax.set(xlabel='Frame #', ylabel='Latency (ms)', title='Frame transmission latency over 60GHz')
 	ax.grid()

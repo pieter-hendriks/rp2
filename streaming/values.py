@@ -11,6 +11,17 @@ frame = os.urandom(framesize)
 
 sender = '192.168.4.2'
 receiver = '192.168.3.2'
-port = 50000
+udpport = 50000
+tcpport = 50001
+ntpport = 50123
 
-loopLength = 1600
+loopLength = 5
+
+
+exitString = 'EXIT'
+
+UDPSENDTIME = 'UST'
+TCPFRAMEREPORT = 'TFR'
+PARTIALFRAME = 'URP'
+WRONGFRAMESIZE = 'UBF'
+FRAMERECEIVED = 'URF'
