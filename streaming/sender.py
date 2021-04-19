@@ -33,8 +33,12 @@ def udpFn(ctrlPipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind((sender, udpport))
 	s.connect((receiver, udpport))
+	print(framesize)
 	for i in range(loopLength):
-		ret = s.sendall(frame)
+		frameStart = time.time()
+
+		for segment in range(len(frameSegments)):
+			ret = s.send(i.to_bytes(4,byteorder='big') + segment.to_bytes(4, byteorder='big') + frameSegments[segment])
 		ctrlPipe.send(UDPSENDTIME + struct.pack(">d", time.time()))
 		if ret is not None:
 			print(ret)
@@ -62,19 +66,19 @@ if __name__ == "__main__":
 	# tcpName = 'TCP reporting fn'
 	# tcpFnPipe, tcpMainPipe = mp.Pipe()
 	# tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe,))
-	
+
 	# Start the processes
 	processes = [(udpProcess, udpMainPipe)] # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
-	for p in processes:
+	for p, _ in processes:
 		p.start()
-	
+
 	while True:
 		time.sleep(1)
 	exit(0)
-	fig, ax = plt.subplots()
-	ax.set(xlabel='Frame #', ylabel='Latency (ms)', title='Frame transmission latency over 60GHz')
-	ax.grid()
-	ax.plot([i for i in range(loopLength)], [y - x for x, y in times], label="Observed latency")
-	ax.plot([i for i in range(loopLength)], [frametime for _ in range(loopLength)], label="Frametime")
-	plt.legend()
-	plt.show()
+	# fig, ax = plt.subplots()
+	# ax.set(xlabel='Frame #', ylabel='Latency (ms)', title='Frame transmission latency over 60GHz')
+	# ax.grid()
+	# ax.plot([i for i in range(loopLength)], [y - x for x, y in times], label="Observed latency")
+	# ax.plot([i for i in range(loopLength)], [frametime for _ in range(loopLength)], label="Frametime")
+	# plt.legend()
+	# plt.show()
