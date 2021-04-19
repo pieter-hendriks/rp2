@@ -38,13 +38,10 @@ def udpFn(ctrlPipe):
 		frameStart = time.time()
 		for segment in range(len(frameSegments)):
 			ret = s.send(i.to_bytes(4,byteorder='big') + segment.to_bytes(4, byteorder='big') + frameSegments[segment])
+			if ret != 8 + len(frameSegments[segment]):
+				print("Unexpected error in frame send!")
+
 		ctrlPipe.send(UDPSENDTIME + struct.pack(">d", time.time()))
-		if ret is not None:
-			print(ret)
-			print("Sendall returned non-null value (shown above). Assuming this is an error, sender will exit ungracefully.")
-			ctrlPipe.send(exitString)
-			exit(1)
-		print(f"Process should sleep roughly {(frameStart + frametime) - time.time():.6f} seconds.")
 		while (time.time() < frameStart + frametime):
 			time.sleep(0.001) # I sure hope this doesn't sleep for far too long.
 		print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
