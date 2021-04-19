@@ -34,30 +34,31 @@ def udpFn(ctrlPipe: mp.Pipe):
 			else:
 				content = carryover
 				carryover = None
-			frameid = struct.unpack('>I', content[:4])
-			index = struct.unpack('>I', content[4:8])
+			frameid, index = struct.unpack('>II', content[:8])
 			if index != 0:
+				print("First index received != 0!")
 				ctrlPipe.send(PARTIALFRAME)
 			# When we've received anything, block for a bit to receive all parts of the message
 			s.setblocking(True)
-			s.settimeout(0.3)
+			s.settimeout(0.5)
 			try:
+				marked = False
 				while True:
-					marked = False
 					previous = index
 					recv = s.recv(1500)
-					segmentframeid = struct.unpack('>I', recv[:4])
-					index = struct.unpack('>I', recv[4:8])
+					segmentframeid, index = struct.unpack('>II', recv[:8])
+					#print(f"Received part {index} out of {len(frameSegments)} for frame {segmentframeid}")
 					if segmentframeid != frameid:
 						ctrlPipe.send(PARTIALFRAME)
 						carryover = recv
 						break
-					if (index != previous + 1):
+					if index != previous + 1:
 						count = index - previous
 						# In actual implementation, we probably use some sort of storage to indicate we skip those bytes. 
 						# And re-use the previous frame's values
 						content += bytes(count * frameSegmentSize)
 						if not marked:
+							print(f"Received partial frame for frameid = {frameid}, segments {previous} -> {index}, exclusive")
 							ctrlPipe.send(PARTIALFRAME)
 							marked = True
 					content += recv[8:]
@@ -158,7 +159,8 @@ if __name__ == "__main__":
 		while True:
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
-					print(f"Unhandled pipe message: {pipe.recv()}")
+				#print(f"Unhandled pipe message: {pipe.recv()}")
+				continue
 	except KeyboardInterrupt:
 		# Main process, and all subprocesses, receive the KeyboardInterrupt
 		# So all we have to do is wait for them to finish.
