@@ -316,7 +316,14 @@ def runServer(pipe):
 			rc = pipe.recv()
 			if rc[:len(EXITSTRING)] == EXITSTRING:
 				print("NTP received exit from main, exiting...")
-				# Without signal, as main is aware.
+				# Ensure our worker threads are joined
+				recvThread.join()
+				workThread.join()
+				# Close the socket
+				mysocket.close()
+				# And then actually exit
+				# Without signal, because main is already aware of our termination
+				# It sent the message to pipe
 				exit (0)
 			else:
 				print(f"NTP server unhandled pipe message: {rc}")
@@ -326,9 +333,10 @@ def runServer(pipe):
 			recvThread.join()
 			workThread.join()
 			mysocket.close()
-			if pipe:
-				pipe.send(EXITSTRING)
-				pipe.close()
+			# Child process getting keyboard interrupt means main does too
+			# if pipe:
+			# 	pipe.send(EXITSTRING)
+			# 	pipe.close()
 			break
 
 if __name__ == "__main__":
