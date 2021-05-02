@@ -234,6 +234,7 @@ if __name__ == "__main__":
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
 				rc = pipe.recv()
+				print (f"Receiver handling message: {rc} (EXITSTRING = {EXITSTRING})")
 				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
 				print (f"Receiver handled message: {rc} (EXITSTRING = {EXITSTRING})")
 				if rc == EXITSTRING:
