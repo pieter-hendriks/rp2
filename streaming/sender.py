@@ -11,10 +11,23 @@ from helpers import handleSenderInterprocessCommunication as handleInterprocessC
 # Don't explicitly define the ntp server fn here, as it's located in the ntp server file.
 
 def tcpFn(ctrlPipe: mp.Pipe):
+	def handleMessages(ctrlPipe: mp.Pipe):
+		if ctrlPipe.poll():
+			msg = ctrlPipe.recv()
+			if msg[:len(UDPSENDTIME)] == UDPSENDTIME:
+				s.send(TCPFRAMEREPORT + framesize.to_bytes(4, byteorder='big') + msg[len(UDPSENDTIME):])
+			elif msg[:len(EXITSTRING)] == EXITSTRING:
+				print("TCP received exit from main, exiting...")
+				# Exit without signaling, since main sent us the signal
+				exit(0)
+			else:
+				print(f"TCP Function has received the following unhandled pipe message: {msg}")
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((sender, tcpport))
 	connected = False
+	# First, we iterate until we've connected. During this period, we still listen for signals from main fn 
 	while not connected:
+		handleMessages(ctrlPipe)
 		try:
 			s.connect((receiver, tcpport))
 			connected = True
@@ -24,27 +37,19 @@ def tcpFn(ctrlPipe: mp.Pipe):
 				raise e from None
 			else:
 				continue
+	# Then we handle the actual TCP message exchange when connection is established
 	while True:
-		if ctrlPipe.poll():
-			msg = ctrlPipe.recv()
-			if msg[:len(UDPSENDTIME)] == UDPSENDTIME:
-				s.send(TCPFRAMEREPORT + framesize.to_bytes(4, byteorder='big') + msg[len(UDPSENDTIME):])
-			elif msg[:len(EXITSTRING)] == EXITSTRING:
-				s.send(EXITSTRING)
-				raise KeyboardInterrupt
-			else:
-				print(f"TCP Function has received the following unhandled pipe message: {msg}")
-		else:
-			# Poll the socket for messages
-			s.setblocking(False)
-			try:
-				recv = s.recv(4096)
-				if (len(recv) > 0):
-					print(f"Received message on TCP channel: {recv}")
-			except socket.timeout as e:
-				if e.args[0] != 'timed out':
-					print(f"Encountered unexpected error in tcp fn: {e}")
-			s.setblocking(True)
+		handleMessages(ctrlPipe)
+		# Poll the socket for messages
+		s.setblocking(False)
+		try:
+			recv = s.recv(4096)
+			if (len(recv) > 0):
+				print(f"Received message on TCP channel: {recv}")
+		except socket.timeout as e:
+			if e.args[0] != 'timed out':
+				print(f"Encountered unexpected error in tcp fn: {e}")
+		s.setblocking(True)
 		# If neither pipe nor socket has messages, yield thread
 		time.sleep(0.005)
 
