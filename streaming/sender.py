@@ -106,7 +106,9 @@ if __name__ == "__main__":
 				done = True
 	print("Join()ing all processes...")
 	for p, _ in processes:
+		print("Calling join()")
 		p.join()
+		print("Join completed:", p)
 	print("All processes have closed gracefully. Join()'s are completed.")
 	print("Main function will now exit.")
 
