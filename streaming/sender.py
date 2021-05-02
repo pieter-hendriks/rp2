@@ -66,7 +66,9 @@ def udpFn(ctrlPipe):
 		while (time.time() < frameStart + frametime):
 			time.sleep(0.001) # I sure hope this doesn't sleep for far too long.
 		print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
+	print ("UDP function now sending exit string, loop is over.")
 	ctrlPipe.send(EXITSTRING)
+	print ("UDP exiting...")
 
 if __name__ == "__main__":
 	# Create the NTP server process and its communication pipe
