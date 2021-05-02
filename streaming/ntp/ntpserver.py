@@ -319,8 +319,10 @@ def runServer(pipe):
 				# Ensure our worker threads are joined
 				recvThread.join()
 				workThread.join()
+				print ("[NTP] Joined worker threads.")
 				# Close the socket
 				mysocket.close()
+				print ("[NTP] Closed sockets")
 				# And then actually exit
 				# Without signal, because main is already aware of our termination
 				# It sent the message to pipe
