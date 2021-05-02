@@ -6,6 +6,7 @@ import multiprocessing as mp
 import struct
 import ntplib
 from datetime import datetime
+from helpers import handleReceiverInterprocessCommunication as handleInterprocessCommunication
 # -------       -------
 # | 2.1 | ~~~~~ | 2.2 |
 # | 3.1 |       | 4.1 |
@@ -184,35 +185,6 @@ def udpFn(ctrlPipe: mp.Pipe):
 				ctrlPipe.send(EXITSTRING)
 				ctrlPipe.close()
 
-def handleInterprocessCommunication(receivedMessage, udpPipe, tcpPipe, ntpPipe):
-	# Handle interprocess pipe communication
-	# There's probably a more elegant way to implement this. Oh well.
-	if receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
-		udpPipe.send(receivedMessage)
-		tcpPipe.send(receivedMessage)
-	elif receivedMessage[:len(EXITSTRING)] == EXITSTRING:
-		if pipe != tcpPipe:
-			tcpPipe.send(EXITSTRING)
-		if pipe != udpPipe:
-			udpPipe.send(EXITSTRING)
-		if pipe != ntpPipe:
-			ntpPipe.send(EXITSTRING)
-	elif receivedMessage[:len(UDPSENDTIME)] == UDPSENDTIME:
-		print("implement UDPSENDTIME handling pls")
-	elif receivedMessage[:len(TCPFRAMEREPORT)] == TCPFRAMEREPORT:
-		print("implement TCPFRAMEREPORT handling pls")
-	elif receivedMessage[:len(TCPRESCALE)] == TCPRESCALE:
-		print("implement TCPRESCALE handling pls")
-	elif receivedMessage[:len(WRONGFRAMESIZE)] == WRONGFRAMESIZE:
-		print("implement WRONGFRAMESIZE handling pls")
-	elif receivedMessage[:len(PARTIALFRAME)] == PARTIALFRAME:
-		print("implement PARTIALFRAME handling pls")
-	elif receivedMessage[:len(FRAMERECEIVED)] == FRAMERECEIVED:
-		print("implement FRAMERECEIVED handling pls")
-	elif receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
-		print("implement NTPOFFSET handling pls")
-	else:
-		print(f"Unhandled pipe message: {pipe.recv()}")
 
 if __name__ == "__main__":
 	try:

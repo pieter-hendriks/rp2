@@ -6,6 +6,7 @@ from values import *
 from ntp import ntpserver
 import struct
 import multiprocessing as mp
+from helpers import handleSenderInterprocessCommunication as handleInterprocessCommunication
 
 # Don't explicitly define the ntp server fn here, as it's located in the ntp server file.
 
@@ -67,8 +68,6 @@ def udpFn(ctrlPipe):
 		print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
 	ctrlPipe.send(EXITSTRING)
 
-
-
 if __name__ == "__main__":
 	# Create the NTP server process and its communication pipe
 	ntpName = 'NTP server'
@@ -91,7 +90,11 @@ if __name__ == "__main__":
 		p.start()
 
 	while True:
-		time.sleep(1)
+		readyPipes = mp.connection.wait(pipes)
+		for pipe in readyPipes:
+			rc = pipe.recv()
+			handleInterprocessCommunication(rc, rcPipe, udpMainPipe, tcpMainPipe, ntpMainPipe)
+
 		for proc, pipe in processes:
 			if pipe.poll():
 				rc = pipe.recv()
