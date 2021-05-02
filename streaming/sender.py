@@ -67,6 +67,13 @@ def udpFn(ctrlPipe):
 	s.connect((receiver, udpport))
 	print(framesize)
 	for i in range(loopLength):
+		if ctrlPipe.poll():
+			rc = ctrlPipe.recv()
+			if rc[:len(EXITSTRING)] == EXITSTRING:
+				print("UDP sender received exit.")
+				exit(0)
+			else:
+				print(f"UDP Sender unhandled message: {rc}")
 		frameStart = time.time()
 		for segment in range(len(frameSegments)):
 			ret = s.send(

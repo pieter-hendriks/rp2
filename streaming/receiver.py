@@ -36,12 +36,9 @@ def ntpFn(ctrlPipe: mp.Pipe):
 	client = ntplib.NTPClient()
 	while True:
 		try:
-			start = time.time()
-			response = client.request(ntpserver,
-			                          port=ntpport,
-			                          version=ntpversion)
-			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
-
+			# Handle control messages from main
+			# Ensure this is done before the NTP request, because NTP request can error
+			# Which would make this unreachable
 			if ctrlPipe.poll():
 				rc = ctrlPipe.recv()
 				if rc[:len(EXITSTRING)] == EXITSTRING:
@@ -50,7 +47,13 @@ def ntpFn(ctrlPipe: mp.Pipe):
 					exit(0)
 				else:
 					print(f"NTP received unhandled message: {rc}")
-
+			start = time.time()
+			response = client.request(
+				ntpserver,
+				port=ntpport,
+				version=ntpversion
+			)
+			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
 			time.sleep((1 / ntpFrequency) - (time.time() - start))
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
@@ -59,54 +62,85 @@ def ntpFn(ctrlPipe: mp.Pipe):
 				continue  # Just re-do the request is request times out, not much else we can do
 				# This may be caused by long delay between start of server and client, or bad connection.
 				# In any case, essentially the best thing to do is just re-request the time sync.
+		except 
 
 
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((receiver, tcpport))
-	connected = False
-	while not connected:
-		try:
-			s.connect((sender, tcpport))
-			connected = True
-		except Exception as e:
-			if e.args == (111, 'Connection refused'):
-				continue
-			else:
-				raise e from None
-			print(e.args)
-			pass
-	while True:
-		if ctrlPipe.poll():
-			msg = ctrlPipe.recv()
-			if msg[:len(EXITSTRING)] == EXITSTRING:
-				# Main function sent us this - so we don't have to do any signaling, we can just exit.
-				print("TCP received exit, now exiting...")
-				exit(0)
-			else:
-				print(f"TCP FN receiver, unhandled pipe message: {msg}")
+	def handleMessages(pipe):
+		msg = pipe.recv()
+		if msg[:len(EXITSTRING)] == EXITSTRING:
+			# Main function sent us this - so we don't have to do any signaling, we can just exit.
+			print("TCP received exit, now exiting...")
+			exit(0)
 		else:
-			# Poll the socket for messages
-			s.setblocking(False)
+			print(f"TCP FN receiver, unhandled pipe message: {msg}")
+
+	def waitForConnection(socket, pipe):
+		connected = False
+		while not connected:
 			try:
-				recv = s.recv(4096)
-				if (len(recv) > 0):
-					if recv[:len(EXITSTRING)] == EXITSTRING:
-						ctrlPipe.send(EXITSTRING)
-						exit(0)
-					else:
-						print(
-						    f"Received unhandled message on TCP channel: {recv}"
-						)
-			except socket.timeout as e:
-				if e.args[0] != 'timed out':
-					print(f"Encountered unexpected error in tcp fn: {e}")
-			s.setblocking(True)
+				# Check control messages first, to ensure we're not supposed to be exiting for example
+				if pipe.poll():
+					handleMessages(pipe)
+				# then try connecting/setting the connection
+				socket.connect((sender, tcpport))
+				connected = True
+			except Exception as e:
+				if e.args == (111, 'Connection refused'):
+					continue
+				else:
+					raise e from None
+				print(e.args)
+				pass
+	
+	waitForConnection(s, ctrlPipe)
+	while True:
+		# Handle the control messages from main()
+		if ctrlPipe.poll():
+			handleMessages(ctrlPipe)
+		# Handle messages over the TCP connection
+		s.setblocking(False)
+		try:
+			recv = s.recv(4096)
+			if (len(recv) > 0):
+				if recv[:len(EXITSTRING)] == EXITSTRING:
+					print("Received TCP exit")
+					ctrlPipe.send(EXITSTRING)
+					exit(0)
+				else:
+					print(
+							f"Received unhandled message on TCP channel: {recv}"
+					)
+		except socket.timeout as e:
+			if e.args[0] != 'timed out':
+				print(f"Encountered unexpected error in tcp fn: {e}")
+		except BlockingIOError as e:
+			if e.args == (11, 'Resource temporarily unavailable'):
+				print("Temp unavailable, waiting for connection to be back...")
+				waitForConnection(s)
+		s.setblocking(True)
 		# If neither pipe nor socket has messages, yield thread
 		time.sleep(0.005)
 
 
 def udpFn(ctrlPipe: mp.Pipe):
+	def handleMessages(pipe):
+		msg = ctrlPipe.recv()
+		# Handle exit
+		if msg[:len(EXITSTRING)] == EXITSTRING:
+			s.close()
+			ctrlPipe.send(EXITSTRING)
+			ctrlPipe.close()
+			break
+		elif msg[:len(NTPOFFSET)] == NTPOFFSET:
+			timeOffset = float(msg[len(NTPOFFSET):])
+			# Set the timeoffset, which will be used whenever we grab the current time.
+			# Hope this will make it so reporting is accurate enough.
+		else:
+			print(f"Unhandled msg in udp function, receiver: {msg}")
+
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
 	s.bind((receiver, udpport))
@@ -116,19 +150,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
-				msg = ctrlPipe.recv()
-				# Handle exit
-				if msg[:len(EXITSTRING)] == EXITSTRING:
-					s.close()
-					ctrlPipe.send(EXITSTRING)
-					ctrlPipe.close()
-					break
-				elif msg[:len(NTPOFFSET)] == NTPOFFSET:
-					timeOffset = float(msg[len(NTPOFFSET):])
-					# Set the timeoffset, which will be used whenever we grab the current time.
-					# Hope this will make it so reporting is accurate enough.
-				else:
-					print(f"Unhandled msg in udp function, receiver: {msg}")
+				handleMessages(pipe)
 			# Mark in case last segment is dropped
 			if carryover is None:
 				# Try to receive, will throw socket.timeout if no content
@@ -190,23 +212,25 @@ def udpFn(ctrlPipe: mp.Pipe):
 			s.close()
 			ctrlPipe.send(EXITSTRING)
 			ctrlPipe.close()
+			exit(0)
 		except socket.timeout as e:
 			# Handle socket time outs
-			print(f"Received error2: {e}")
+			print(f"Received socket.timeout: {e}")
 			ermsg = e.args[0]
 			if ermsg == 'timed out':
-				time.sleep(0.01)
 				continue
+			else:
+				throw e from None
 		except socket.error as e:
 			# Handle other errors, like no-data on socket recv when socket in non-block mode
 			if len(e.args) > 0:
 				if e.args[0] == 11:
-					time.sleep(0.01)
 					continue
 			else:
 				s.close()
 				ctrlPipe.send(EXITSTRING)
 				ctrlPipe.close()
+				exit(0)
 
 
 if __name__ == "__main__":
