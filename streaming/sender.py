@@ -19,8 +19,8 @@ def tcpFn(ctrlPipe: mp.Pipe):
 			s.connect((receiver, tcpport))
 			connected = True
 		except Exception as e:
-			# If timeout, retry, else throw the error
-			if e.args[0] != 'timed out':
+			# If receiver not up yet, retry, else throw the error
+			if e.args != (111, 'Connection refused'):
 				raise e from None
 			else:
 				continue
