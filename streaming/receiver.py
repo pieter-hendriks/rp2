@@ -39,6 +39,16 @@ def ntpFn(ctrlPipe: mp.Pipe):
 			start = time.time()
 			response = client.request(ntpserver, port=ntpport, version=ntpversion)
 			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
+
+			if ctrlPipe.poll():
+				rc = ctrlPipe.recv()
+				if rc[:len(EXITSTRING)] == EXITSTRING:
+					print("NTP received exit string, now exiting...")
+					# Got this from main function, so simply exit without any signaling
+					exit (0)
+				else:
+					print(f"NTP received unhandled message: {rc}")
+			
 			time.sleep((1 / ntpFrequency) - (time.time() - start))
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
@@ -68,7 +78,9 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		if ctrlPipe.poll():
 			msg = ctrlPipe.recv()
 			if msg[:len(EXITSTRING)] == EXITSTRING:
-				print("EXITSTRING unhandled in tcp fn, receiver.")
+				# Main function sent us this - so we don't have to do any signaling, we can just exit.
+				print("TCP received exit, now exiting...")
+				exit(0)
 			else:
 				print(f"TCP FN receiver, unhandled pipe message: {msg}")
 		else:
