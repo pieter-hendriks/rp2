@@ -13,7 +13,7 @@ import queue
 import threading
 import select
 
-from values import exitString
+from values import EXITSTRING
 
 taskQueue = queue.Queue()
 stopFlag = False
@@ -318,7 +318,7 @@ def runServer(pipe):
 			workThread.join()
 			mysocket.close()
 			if pipe:
-				pipe.send(exitString)
+				pipe.send(EXITSTRING)
 				pipe.close()
 			break
 

@@ -7,6 +7,8 @@ from ntp import ntpserver
 import struct
 import multiprocessing as mp
 
+# Don't explicitly define the ntp server fn here, as it's located in the ntp server file.
+
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((sender, tcpport))
@@ -21,6 +23,8 @@ def tcpFn(ctrlPipe: mp.Pipe):
 			s.setblocking(False)
 			try:
 				recv = s.recv(4096)
+				if (len(recv) > 0):
+					print(f"Received message on TCP channel: {recv}")
 			except socket.timeout as e:
 				if e.args[0] != 'timed out':
 					print(f"Encountered unexpected error in tcp fn: {e}")
@@ -45,14 +49,15 @@ def udpFn(ctrlPipe):
 		while (time.time() < frameStart + frametime):
 			time.sleep(0.001) # I sure hope this doesn't sleep for far too long.
 		print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
+	ctrlPipe.send(EXITSTRING)
 
 
 
 if __name__ == "__main__":
 	# Create the NTP server process and its communication pipe
-	# ntpName = 'NTP server'
-	# ntpFnPipe, ntpMainPipe = mp.Pipe()
-	# ntpProcess = mp.Process(name=ntpName, target=ntpserver.runServer, args=(ntpFnPipe,))
+	ntpName = 'NTP server'
+	ntpFnPipe, ntpMainPipe = mp.Pipe()
+	ntpProcess = mp.Process(name=ntpName, target=ntpserver.runServer, args=(ntpFnPipe,))
 
 	# Then the UDP frame sender
 	udpName = 'UDP frame sender'
@@ -60,17 +65,32 @@ if __name__ == "__main__":
 	udpProcess = mp.Process(name=udpName, target=udpFn, args=(udpFnPipe,))
 
 	# And finally tcp reporter
-	# tcpName = 'TCP reporting fn'
-	# tcpFnPipe, tcpMainPipe = mp.Pipe()
-	# tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe,))
+	tcpName = 'TCP reporting fn'
+	tcpFnPipe, tcpMainPipe = mp.Pipe()
+	tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe,))
 
 	# Start the processes
-	processes = [(udpProcess, udpMainPipe)] # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
+	processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe), (ntpProcess, ntpMainPipe)] # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
 	for p, _ in processes:
 		p.start()
 
 	while True:
 		time.sleep(1)
+		for proc, pipe in processes:
+			if pipe.poll():
+				rc = pipe.recv()
+				if rc == EXITSTRING:
+					for _, otherPipe in [x for x in processes if x != (proc, pipe)]:
+						otherPipe.send(EXITSTRING)
+					break
+				else:
+					print(f"Unexpected pipe message from {proc}: {rc}")
+	print("Join()ing all processes...")
+	for p, _ in processes:
+		p.join()
+	print("All processes have closed gracefully. Join()'s are completed.")
+	print("Main function will now exit.")
+
 	exit(0)
 	# fig, ax = plt.subplots()
 	# ax.set(xlabel='Frame #', ylabel='Latency (ms)', title='Frame transmission latency over 60GHz')
