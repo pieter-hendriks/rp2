@@ -48,18 +48,24 @@ def ntpFn(ctrlPipe: mp.Pipe):
 				else:
 					print(f"NTP received unhandled message: {rc}")
 			start = time.time()
-			response = client.request(
-				ntpserver,
-				port=ntpport,
-				version=ntpversion
-			)
+			response = client.request(ntpserver,
+			                          port=ntpport,
+			                          version=ntpversion)
 			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
 			time.sleep((1 / ntpFrequency) - (time.time() - start))
-		except socket.timeout as e:
-			if e.args[0] != 'timed out':
-				raise e from None
+		except (socket.timeout, ntplib.NTPException) as e:
+			print(f"e type: {type(e)}, args = '{e.args[0]}'")
+			print(
+			    f"e type: {type(e)}, args = 'No response received from {ntpserver}.'"
+			)
+			if e.args[0] in [
+			    'timed out',
+			    f'No response received from {ntpserver}.',
+			]:
+				continue
 			else:
-				continue  # Just re-do the request is request times out, not much else we can do
+				raise e from None
+				# Just re-do the request is request times out, not much else we can do
 				# This may be caused by long delay between start of server and client, or bad connection.
 				# In any case, essentially the best thing to do is just re-request the time sync.
 
@@ -67,6 +73,7 @@ def ntpFn(ctrlPipe: mp.Pipe):
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((receiver, tcpport))
+
 	def handleMessages(pipe):
 		msg = pipe.recv()
 		if msg[:len(EXITSTRING)] == EXITSTRING:
@@ -93,7 +100,7 @@ def tcpFn(ctrlPipe: mp.Pipe):
 					raise e from None
 				print(e.args)
 				pass
-	
+
 	waitForConnection(s, ctrlPipe)
 	while True:
 		# Handle the control messages from main()
@@ -109,9 +116,7 @@ def tcpFn(ctrlPipe: mp.Pipe):
 					ctrlPipe.send(EXITSTRING)
 					exit(0)
 				else:
-					print(
-							f"Received unhandled message on TCP channel: {recv}"
-					)
+					print(f"Received unhandled message on TCP channel: {recv}")
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
 				print(f"Encountered unexpected error in tcp fn: {e}")
@@ -127,21 +132,22 @@ def tcpFn(ctrlPipe: mp.Pipe):
 
 def udpFn(ctrlPipe: mp.Pipe):
 	timeOffset = 0
-	def handleMessages(pipe, offset = timeOffset):
+
+	def handleMessages(pipe, offset=timeOffset):
 		msg = ctrlPipe.recv()
 		# Handle exit
 		if msg[:len(EXITSTRING)] == EXITSTRING:
 			s.close()
-			ctrlPipe.send(EXITSTRING)
 			ctrlPipe.close()
+			exit(0)
 		elif msg[:len(NTPOFFSET)] == NTPOFFSET:
 			offset = float(msg[len(NTPOFFSET):])
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
-
 		else:
 			print(f"Unhandled msg in udp function, receiver: {msg}")
 		return offset
+
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
 	s.bind((receiver, udpport))
@@ -150,7 +156,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
-				timeOffset = handleMessages(pipe)
+				timeOffset = handleMessages(ctrlPipe)
 			# Mark in case last segment is dropped
 			if carryover is None:
 				# Try to receive, will throw socket.timeout if no content
