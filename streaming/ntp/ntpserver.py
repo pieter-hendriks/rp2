@@ -311,8 +311,9 @@ def runServer(pipe):
 
 	while True:
 		try:
-			readyPipe = mp.connection.wait([pipe])
-			rc = readyPipe.recv()
+			# This should be a blocking call. NTP functionality is in different threads, so this should be sufficient?
+			# If not, well, we'll find out.
+			rc = pipe.recv()
 			if rc[:len(EXITSTRING)] == EXITSTRING:
 				print("NTP received exit from main, exiting...")
 				# Without signal, as main is aware.
