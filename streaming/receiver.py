@@ -240,8 +240,9 @@ if __name__ == "__main__":
 	except KeyboardInterrupt:
 		# Every process/subprocess receives kb interrupt
 		# So we don't manually need to do anything here -they'll finish on their own
-		pass
-	print("Received keyboard interrupt - now join()ing all processes...")
+		print("MAIN received keyboard interrupt, exiting...")
+		print("No exit signals sent - children will also receive KB interrupt signal.")
+	print("Main function loop ended, join()ing processes")
 	for process, _ in processes:
 		process.join()
 	print("Successfully joined all processes. Exiting...")
