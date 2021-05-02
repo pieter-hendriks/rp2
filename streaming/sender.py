@@ -1,8 +1,8 @@
 import os
 import socket
 import time
-import matplotlib.pyplot as plt
-from values import *
+import matplotlib.pyplot as plot
+from values import UDPSENDTIME, EXITSTRING,TCPFRAMEREPORT,framesize,sender,tcpport,receiver,udpport,loopLength,frameSegments,frametime
 from ntp import ntpserver
 import struct
 import multiprocessing as mp
@@ -13,13 +13,19 @@ from helpers import handleSenderInterprocessCommunication as handleInterprocessC
 
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	def handleExitCommunication(socket = s):
+
+	def handleExitCommunication(socket=s):
 		print("Sending TCP exit message over socket")
 		try:
 			socket.sendall(EXITSTRING)
 		except Exception as e:
-			print(f"Received error as part of TCP exit communication: {e}")
-			print("This may occur if receiver is not started.")
+			if e.args == (32, "Broken pipe"):
+				print(
+				    f"Received broken pipeerror as part of TCP exit communication."
+				)
+				print("This may occur if receiver is not started.")
+			else:
+				raise e from None
 
 	def handleMessages(ctrlPipe: mp.Pipe):
 		if ctrlPipe.poll():

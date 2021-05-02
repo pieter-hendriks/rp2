@@ -1,7 +1,7 @@
 import os
 import socket
 import time
-from values import *
+from values import EXITSTRING,ntpserver,ntpport,ntpversion,NTPOFFSET,ntpFrequency,receiver,tcpport,sender,udpport,PARTIALFRAME,frameSegmentSize,frameSegments,WRONGFRAMESIZE,FRAMERECEIVED,framesize
 import multiprocessing as mp
 import struct
 import ntplib

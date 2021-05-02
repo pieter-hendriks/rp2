@@ -260,7 +260,7 @@ class RecvThread(threading.Thread):
 			if stopFlag == True:
 				# print "RecvThread Ended"
 				break
-			rlist, wlist, elist = select.select([self.socket], [], [], 1)
+			rlist, _, _ = select.select([self.socket], [], [], 1)
 			if len(rlist) != 0:
 				# print "Received %d packets" % len(rlist)
 				for tempSocket in rlist:

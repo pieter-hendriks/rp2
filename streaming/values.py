@@ -1,4 +1,4 @@
-import os
+from os import urandom as rnd
 
 ackmsg = b'ack'
 ackLength = len(ackmsg)
@@ -7,7 +7,7 @@ datarate = 5e7
 framesize = int(datarate / framerate + 0.5)
 # Use random data as frame
 # Can simply use same frame every time - no need to re-generate each iteration
-frame = os.urandom(framesize)
+frame = rnd(framesize)
 frameSegmentSize  = 1280
 frameSegments = [frame[i*frameSegmentSize: (i+1)*frameSegmentSize] for i in range(int(framesize/frameSegmentSize) + 1)]
 
