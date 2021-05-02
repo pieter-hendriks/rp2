@@ -12,7 +12,17 @@ import multiprocessing as mp
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((sender, tcpport))
-	s.connect((receiver, tcpport))
+	connected = False
+	while not connected:
+		try:
+			s.connect((receiver, tcpport))
+			connected = True
+		except Exception as e:
+			# If timeout, retry, else throw the error
+			if e.args[0] != 'timed out':
+				raise e from None
+			else:
+				continue
 	while True:
 		if ctrlPipe.poll():
 			msg = ctrlPipe.recv()
