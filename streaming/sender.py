@@ -88,12 +88,12 @@ if __name__ == "__main__":
 	processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe), (ntpProcess, ntpMainPipe)] # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
 	for p, _ in processes:
 		p.start()
-
+	pipes = [p for _, p in processes]
 	while True:
 		readyPipes = mp.connection.wait(pipes)
 		for pipe in readyPipes:
 			rc = pipe.recv()
-			handleInterprocessCommunication(rc, rcPipe, udpMainPipe, tcpMainPipe, ntpMainPipe)
+			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
 
 		for proc, pipe in processes:
 			if pipe.poll():
