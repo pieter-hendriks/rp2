@@ -18,6 +18,11 @@ def tcpFn(ctrlPipe: mp.Pipe):
 			msg = ctrlPipe.recv()
 			if msg[:len(UDPSENDTIME)] == UDPSENDTIME:
 				s.send(TCPFRAMEREPORT + framesize.to_bytes(4, byteorder='big') + msg[len(UDPSENDTIME):])
+			elif msg[:len(EXITSTRING)] == EXITSTRING:
+				s.send(EXITSTRING)
+				raise KeyboardInterrupt
+			else:
+				print(f"TCP Function has received the following unhandled pipe message: {msg}")
 		else:
 			# Poll the socket for messages
 			s.setblocking(False)

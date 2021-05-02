@@ -66,18 +66,21 @@ def tcpFn(ctrlPipe: mp.Pipe):
 	while True:
 		if ctrlPipe.poll():
 			msg = ctrlPipe.recv()
-			if (False):
-				pass
+			if msg[:len(EXITSTRING)] == EXITSTRING:
+				print("EXITSTRING unhandled in tcp fn, receiver.")
 			else:
-				print(msg)
-				print("Encountered unexpected message in receiver TCP pipe.")
+				print(f"TCP FN receiver, unhandled pipe message: {msg}")
 		else:
 			# Poll the socket for messages
 			s.setblocking(False)
 			try:
 				recv = s.recv(4096)
 				if (len(recv) > 0):
-					print(f"Received message on TCP channel: {recv}")
+					if recv[:len(EXITSTRING)] == EXITSTRING:
+						ctrlPipe.send(EXITSTRING)
+						exit(0)
+					else:
+						print(f"Received unhandled message on TCP channel: {recv}")
 			except socket.timeout as e:
 				if e.args[0] != 'timed out':
 					print(f"Encountered unexpected error in tcp fn: {e}")
@@ -181,6 +184,36 @@ def udpFn(ctrlPipe: mp.Pipe):
 				ctrlPipe.send(EXITSTRING)
 				ctrlPipe.close()
 
+def handleInterprocessCommunication(receivedMessage, udpPipe, tcpPipe, ntpPipe):
+	# Handle interprocess pipe communication
+	# There's probably a more elegant way to implement this. Oh well.
+	if receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
+		udpPipe.send(receivedMessage)
+		tcpPipe.send(receivedMessage)
+	elif receivedMessage[:len(EXITSTRING)] == EXITSTRING:
+		if pipe != tcpPipe:
+			tcpPipe.send(EXITSTRING)
+		if pipe != udpPipe:
+			udpPipe.send(EXITSTRING)
+		if pipe != ntpPipe:
+			ntpPipe.send(EXITSTRING)
+	elif receivedMessage[:len(UDPSENDTIME)] == UDPSENDTIME:
+		print("implement UDPSENDTIME handling pls")
+	elif receivedMessage[:len(TCPFRAMEREPORT)] == TCPFRAMEREPORT:
+		print("implement TCPFRAMEREPORT handling pls")
+	elif receivedMessage[:len(TCPRESCALE)] == TCPRESCALE:
+		print("implement TCPRESCALE handling pls")
+	elif receivedMessage[:len(WRONGFRAMESIZE)] == WRONGFRAMESIZE:
+		print("implement WRONGFRAMESIZE handling pls")
+	elif receivedMessage[:len(PARTIALFRAME)] == PARTIALFRAME:
+		print("implement PARTIALFRAME handling pls")
+	elif receivedMessage[:len(FRAMERECEIVED)] == FRAMERECEIVED:
+		print("implement FRAMERECEIVED handling pls")
+	elif receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
+		print("implement NTPOFFSET handling pls")
+	else:
+		print(f"Unhandled pipe message: {pipe.recv()}")
+
 if __name__ == "__main__":
 	try:
 		# Basic setup of variables
@@ -217,19 +250,7 @@ if __name__ == "__main__":
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
 				rc = pipe.recv()
-				if rc[:len(NTPOFFSET)] == NTPOFFSET:
-					udpMainPipe.send(rc)
-					tcpMainPipe.send(rc)
-				elif rc[:len(EXITSTRING)] == EXITSTRING:
-					if pipe != tcpMainPipe:
-						tcpMainPipe.send(EXITSTRING)
-					if pipe != udpMainPipe:
-						udpMainPipe.send(EXITSTRING)
-					if pipe != ntpMainPipe:
-						ntpMainPipe.send(EXITSTRING)
-					break
-				else:
-					print(f"Unhandled pipe message: {pipe.recv()}")
+				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
 	except KeyboardInterrupt:
 		# Every process/subprocess receives kb interrupt
 		# So we don't manually need to do anything here -they'll finish on their own

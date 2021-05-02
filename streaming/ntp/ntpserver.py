@@ -312,6 +312,10 @@ def runServer(pipe):
 	while True:
 		try:
 			time.sleep(0.5)
+			if pipe.poll():
+				rc = pipe.recv()
+				if rc[:len(EXITSTRING)] == EXITSTRING:
+					raise KeyboardInterrupt
 		except KeyboardInterrupt:
 			global stopFlag
 			stopFlag = True
