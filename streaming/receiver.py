@@ -235,6 +235,7 @@ if __name__ == "__main__":
 			for pipe in readyPipes:
 				rc = pipe.recv()
 				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
+				print (f"Receiver handled message: {rc} (EXITSTRING = {EXITSTRING})")
 				if rc == EXITSTRING:
 					break
 	except KeyboardInterrupt:
