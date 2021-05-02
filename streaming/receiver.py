@@ -230,7 +230,8 @@ if __name__ == "__main__":
 		ntpProcess.start()
 		# Wait until program is over
 		pipes = [x for _, x in processes]
-		while True:
+		done = False
+		while not done:
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
 				rc = pipe.recv()
@@ -238,7 +239,7 @@ if __name__ == "__main__":
 				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
 				print (f"Receiver handled message: {rc} (EXITSTRING = {EXITSTRING})")
 				if rc == EXITSTRING:
-					break
+					done = True
 	except KeyboardInterrupt:
 		# Every process/subprocess receives kb interrupt
 		# So we don't manually need to do anything here -they'll finish on their own

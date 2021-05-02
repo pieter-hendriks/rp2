@@ -96,24 +96,14 @@ if __name__ == "__main__":
 	for p, _ in processes:
 		p.start()
 	pipes = [p for _, p in processes]
-	while True:
+	done = False
+	while not done:
 		readyPipes = mp.connection.wait(pipes)
 		for pipe in readyPipes:
 			rc = pipe.recv()
-			print (f"Pipe message handling: msg = {rc}")
 			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)				
 			if rc == EXITSTRING:
-				break
-
-		for proc, pipe in processes:
-			if pipe.poll():
-				rc = pipe.recv()
-				if rc == EXITSTRING:
-					for _, otherPipe in [x for x in processes if x != (proc, pipe)]:
-						otherPipe.send(EXITSTRING)
-					break
-				else:
-					print(f"Unexpected pipe message from {proc}: {rc}")
+				done = True
 	print("Join()ing all processes...")
 	for p, _ in processes:
 		p.join()
