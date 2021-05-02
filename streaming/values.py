@@ -14,7 +14,7 @@ frameSegments = [frame[i*frameSegmentSize: (i+1)*frameSegmentSize] for i in rang
 sender = '192.168.4.2'
 receiver = '192.168.3.2'
 
-ntpserver = ''#sender
+ntpserver = '192.168.1.26'#sender
 ntpclient= '192.168.1.8'#receiver
 udpport = 50000
 tcpport = 50001

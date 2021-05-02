@@ -34,16 +34,35 @@ def getTime(offset):
 def ntpFn(ctrlPipe: mp.Pipe):
 	client = ntplib.NTPClient()
 	while True:
-		start = time.time()
-		response = client.request(ntpserver, port=ntpport, version=ntpversion)
-		ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
-		time.sleep((1 / ntpFrequency) - (time.time() - start))
+		try:
+			start = time.time()
+			response = client.request(ntpserver, port=ntpport, version=ntpversion)
+			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
+			time.sleep((1 / ntpFrequency) - (time.time() - start))
+		except socket.timeout as e:
+			if e.args[0] != 'timed out':
+				raise e from None
+			else:
+				continue # Just re-do the request is request times out, not much else we can do
+				# This may be caused by long delay between start of server and client, or bad connection.
+				# In any case, essentially the best thing to do is just re-request the time sync.
 
 
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((receiver, tcpport))
-	s.connect((sender, tcpport))
+	connected = False
+	while not connected:
+		try:
+			s.connect((sender, tcpport))
+			connected = True
+		except Exception as e:
+			if e.args == (111, 'Connection refused'):
+				continue
+			else:
+				raise e from None
+			print(e.args)
+			pass
 	while True:
 		if ctrlPipe.poll():
 			msg = ctrlPipe.recv()
