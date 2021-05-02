@@ -298,7 +298,7 @@ class WorkThread(threading.Thread):
                 # print "Sended to %s:%d" % (addr[0],addr[1])
             except queue.Empty:
                 continue
-
+import multiprocessing as mp
 def runServer(pipe):
 	listenIp = "192.168.1.26"
 	listenPort = 50123#123 # Modified to avoid having to run as super user (Can't bind to port < 1024 without privileges)
@@ -311,11 +311,14 @@ def runServer(pipe):
 
 	while True:
 		try:
-			time.sleep(0.5)
-			if pipe.poll():
-				rc = pipe.recv()
-				if rc[:len(EXITSTRING)] == EXITSTRING:
-					raise KeyboardInterrupt
+			readyPipe = mp.connection.wait([pipe])
+			rc = readyPipe.recv()
+			if rc[:len(EXITSTRING)] == EXITSTRING:
+				print("NTP received exit from main, exiting...")
+				# Without signal, as main is aware.
+				exit (0)
+			else:
+				print(f"NTP server unhandled pipe message: {rc}")
 		except KeyboardInterrupt:
 			global stopFlag
 			stopFlag = True
