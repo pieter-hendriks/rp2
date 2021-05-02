@@ -62,7 +62,6 @@ def ntpFn(ctrlPipe: mp.Pipe):
 				continue  # Just re-do the request is request times out, not much else we can do
 				# This may be caused by long delay between start of server and client, or bad connection.
 				# In any case, essentially the best thing to do is just re-request the time sync.
-		except 
 
 
 def tcpFn(ctrlPipe: mp.Pipe):
@@ -118,39 +117,40 @@ def tcpFn(ctrlPipe: mp.Pipe):
 				print(f"Encountered unexpected error in tcp fn: {e}")
 		except BlockingIOError as e:
 			if e.args == (11, 'Resource temporarily unavailable'):
-				print("Temp unavailable, waiting for connection to be back...")
-				waitForConnection(s)
+				continue
+			else:
+				raise e from None
 		s.setblocking(True)
-		# If neither pipe nor socket has messages, yield thread
-		time.sleep(0.005)
+		# # If neither pipe nor socket has messages, yield thread
+		# time.sleep(0)
 
 
 def udpFn(ctrlPipe: mp.Pipe):
-	def handleMessages(pipe):
+	timeOffset = 0
+	def handleMessages(pipe, offset = timeOffset):
 		msg = ctrlPipe.recv()
 		# Handle exit
 		if msg[:len(EXITSTRING)] == EXITSTRING:
 			s.close()
 			ctrlPipe.send(EXITSTRING)
 			ctrlPipe.close()
-			break
 		elif msg[:len(NTPOFFSET)] == NTPOFFSET:
-			timeOffset = float(msg[len(NTPOFFSET):])
+			offset = float(msg[len(NTPOFFSET):])
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
+
 		else:
 			print(f"Unhandled msg in udp function, receiver: {msg}")
-
+		return offset
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
 	s.bind((receiver, udpport))
 	carryover = None
 	while True:
-		timeOffset = 0
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
-				handleMessages(pipe)
+				timeOffset = handleMessages(pipe)
 			# Mark in case last segment is dropped
 			if carryover is None:
 				# Try to receive, will throw socket.timeout if no content
@@ -220,7 +220,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if ermsg == 'timed out':
 				continue
 			else:
-				throw e from None
+				raise e from None
 		except socket.error as e:
 			# Handle other errors, like no-data on socket recv when socket in non-block mode
 			if len(e.args) > 0:

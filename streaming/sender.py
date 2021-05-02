@@ -12,6 +12,11 @@ from helpers import handleSenderInterprocessCommunication as handleInterprocessC
 
 
 def tcpFn(ctrlPipe: mp.Pipe):
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	def handleExitCommunication(socket = s):
+		print("Sending TCP exit message over socket")
+		socket.send(EXITSTRING)
+
 	def handleMessages(ctrlPipe: mp.Pipe):
 		if ctrlPipe.poll():
 			msg = ctrlPipe.recv()
@@ -21,14 +26,15 @@ def tcpFn(ctrlPipe: mp.Pipe):
 				       msg[len(UDPSENDTIME):])
 			elif msg[:len(EXITSTRING)] == EXITSTRING:
 				print("TCP received exit from main, exiting...")
-				# Exit without signaling, since main sent us the signal
+				# Let the receiver know that we're done
+				handleExitCommunication()
+				# Then exit. No need to ctrlpipe anyhting since main is aware.
 				exit(0)
 			else:
 				print(
 				    f"TCP Function has received the following unhandled pipe message: {msg}"
 				)
 
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((sender, tcpport))
 	connected = False
 	# First, we iterate until we've connected. During this period, we still listen for signals from main fn
@@ -40,6 +46,7 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		except Exception as e:
 			# If receiver not up yet, retry, else throw the error
 			if e.args != (111, 'Connection refused'):
+				handleExitCommunication()
 				raise e from None
 			else:
 				continue
@@ -55,9 +62,15 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
 				print(f"Encountered unexpected error in tcp fn: {e}")
+		except BlockingIOError as e:
+			if e.args == (11, 'Resource temporarily unavailable'):
+				continue
+			else:
+				raise e from None
 		s.setblocking(True)
 		# If neither pipe nor socket has messages, yield thread
-		time.sleep(0.005)
+		#time.sleep(0.005)
+	handleExitCommunication()
 
 
 def udpFn(ctrlPipe):
