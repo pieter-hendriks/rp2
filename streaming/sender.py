@@ -101,7 +101,9 @@ if __name__ == "__main__":
 		for pipe in readyPipes:
 			rc = pipe.recv()
 			print (f"Pipe message handling: msg = {rc}")
-			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
+			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)				
+			if rc == EXITSTRING:
+				break
 
 		for proc, pipe in processes:
 			if pipe.poll():

@@ -235,6 +235,8 @@ if __name__ == "__main__":
 			for pipe in readyPipes:
 				rc = pipe.recv()
 				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
+				if rc == EXITSTRING:
+					break
 	except KeyboardInterrupt:
 		# Every process/subprocess receives kb interrupt
 		# So we don't manually need to do anything here -they'll finish on their own
