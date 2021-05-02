@@ -95,6 +95,7 @@ if __name__ == "__main__":
 		readyPipes = mp.connection.wait(pipes)
 		for pipe in readyPipes:
 			rc = pipe.recv()
+			print (f"Pipe message handling: msg = {rc}")
 			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
 
 		for proc, pipe in processes:

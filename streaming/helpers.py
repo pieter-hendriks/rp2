@@ -5,9 +5,11 @@ def handleSenderInterprocessCommunication(receivedMessage, udpPipe : mp.Pipe, tc
 	# Handle interprocess pipe communication
 	# There's probably a more elegant way to implement this. Oh well.
 	if receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
+		print("Sending received NTP offset to UDP and TCP!")
 		udpPipe.send(receivedMessage)
 		tcpPipe.send(receivedMessage)
 	elif receivedMessage[:len(EXITSTRING)] == EXITSTRING:
+		print("Sending EXIT everywhere!")
 		#if receivedPipe != tcpPipe:
 		tcpPipe.send(EXITSTRING)
 		#if receivedPipe != udpPipe:
