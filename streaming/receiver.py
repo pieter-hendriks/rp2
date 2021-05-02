@@ -15,12 +15,10 @@ from helpers import handleReceiverInterprocessCommunication as handleInterproces
 # -------       -------
 # | 3.2 |       | 4.2 |
 # -------       -------
-# 
+#
 # Receiver should run on 3.2.
 # Sender on 4.2
 # Sender will also be the NTP server, as it's logical for the non-VR display device to have a more accurate clock.
-
-
 
 # client = ntplib.NTPClient()
 # offset = 0
@@ -29,15 +27,19 @@ from helpers import handleReceiverInterprocessCommunication as handleInterproces
 # 	print(response.offset)
 # 	time.sleep(0.3)
 
+
 def getTime(offset):
 	return time.time() + offset
+
 
 def ntpFn(ctrlPipe: mp.Pipe):
 	client = ntplib.NTPClient()
 	while True:
 		try:
 			start = time.time()
-			response = client.request(ntpserver, port=ntpport, version=ntpversion)
+			response = client.request(ntpserver,
+			                          port=ntpport,
+			                          version=ntpversion)
 			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
 
 			if ctrlPipe.poll():
@@ -45,16 +47,16 @@ def ntpFn(ctrlPipe: mp.Pipe):
 				if rc[:len(EXITSTRING)] == EXITSTRING:
 					print("NTP received exit string, now exiting...")
 					# Got this from main function, so simply exit without any signaling
-					exit (0)
+					exit(0)
 				else:
 					print(f"NTP received unhandled message: {rc}")
-			
+
 			time.sleep((1 / ntpFrequency) - (time.time() - start))
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
 				raise e from None
 			else:
-				continue # Just re-do the request is request times out, not much else we can do
+				continue  # Just re-do the request is request times out, not much else we can do
 				# This may be caused by long delay between start of server and client, or bad connection.
 				# In any case, essentially the best thing to do is just re-request the time sync.
 
@@ -93,13 +95,16 @@ def tcpFn(ctrlPipe: mp.Pipe):
 						ctrlPipe.send(EXITSTRING)
 						exit(0)
 					else:
-						print(f"Received unhandled message on TCP channel: {recv}")
+						print(
+						    f"Received unhandled message on TCP channel: {recv}"
+						)
 			except socket.timeout as e:
 				if e.args[0] != 'timed out':
 					print(f"Encountered unexpected error in tcp fn: {e}")
 			s.setblocking(True)
 		# If neither pipe nor socket has messages, yield thread
 		time.sleep(0.005)
+
 
 def udpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -119,7 +124,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 					ctrlPipe.close()
 					break
 				elif msg[:len(NTPOFFSET)] == NTPOFFSET:
-					timeOffset = float(msg[len(NTPOFFSET):]) 
+					timeOffset = float(msg[len(NTPOFFSET):])
 					# Set the timeoffset, which will be used whenever we grab the current time.
 					# Hope this will make it so reporting is accurate enough.
 				else:
@@ -133,7 +138,9 @@ def udpFn(ctrlPipe: mp.Pipe):
 				carryover = None
 			frameid, index = struct.unpack('>II', content[:8])
 			if index != 0:
-				print(f"First index received != 0. For frame {frameid}, we dropped packets 0 (inclusive) to {index} (exclusive).")
+				print(
+				    f"First index received != 0. For frame {frameid}, we dropped packets 0 (inclusive) to {index} (exclusive)."
+				)
 				ctrlPipe.send(PARTIALFRAME)
 			# When we've received anything, block for a bit to receive all parts of the message
 			s.setblocking(True)
@@ -151,27 +158,31 @@ def udpFn(ctrlPipe: mp.Pipe):
 						break
 					if index != previous + 1:
 						count = index - previous
-						# In actual implementation, we probably use some sort of storage to indicate we skip those bytes. 
+						# In actual implementation, we probably use some sort of storage to indicate we skip those bytes.
 						# And re-use the previous frame's values
 						content += bytes(count * frameSegmentSize)
 						if not marked:
-							print(f"Received partial frame for frameid = {frameid}, segments {previous} -> {index}, exclusive")
+							print(
+							    f"Received partial frame for frameid = {frameid}, segments {previous} -> {index}, exclusive"
+							)
 							ctrlPipe.send(PARTIALFRAME)
 							marked = True
 					content += recv[8:]
 					if (index == len(frameSegments) - 1):
 						break
 			except socket.timeout as e:
-					# Report error if we encounter one (Packet dropped)
-					ctrlPipe.send(PARTIALFRAME)
+				# Report error if we encounter one (Packet dropped)
+				ctrlPipe.send(PARTIALFRAME)
 			print(f"Successfully handled frame id {frameid}")
-				
+
 			# Report error, incorrect frame size received
 			if len(content) != framesize:
 				ctrlPipe.send(WRONGFRAMESIZE)
 
 			# Record frame reception time
-			ctrlPipe.send(FRAMERECEIVED + framesize.to_bytes(4, byteorder='big') + struct.pack('>d', getTime(timeOffset)))
+			ctrlPipe.send(FRAMERECEIVED +
+			              framesize.to_bytes(4, byteorder='big') +
+			              struct.pack('>d', getTime(timeOffset)))
 			# Then go back to non-blocking
 			s.setblocking(False)
 		except KeyboardInterrupt as e:
@@ -191,7 +202,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if len(e.args) > 0:
 				if e.args[0] == 11:
 					time.sleep(0.01)
-					continue 
+					continue
 			else:
 				s.close()
 				ctrlPipe.send(EXITSTRING)
@@ -211,19 +222,20 @@ if __name__ == "__main__":
 		ntpFnPipe, ntpMainPipe = mp.Pipe()
 
 		# Create the processes
-		udpProcess = mp.Process(name=udpName, target=udpFn, args=(udpFnPipe,))
-		tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe,))
-		ntpProcess = mp.Process(name=ntpName, target=ntpFn, args=(ntpFnPipe,))
+		udpProcess = mp.Process(name=udpName, target=udpFn, args=(udpFnPipe, ))
+		tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe, ))
+		ntpProcess = mp.Process(name=ntpName, target=ntpFn, args=(ntpFnPipe, ))
 
-		# Process comms: 
-		# 		NTP client reports time offset to main process, main process forwards to TCP and UDP. 
+		# Process comms:
+		# 		NTP client reports time offset to main process, main process forwards to TCP and UDP.
 		# 		Main thread and UDP only exchange exit messages.
-		# 							
+		#
 		# Process communication: main thread <--EXITONLY--> NTP server
-		# 											 main thread <--EXITONLY--> UDP 
+		# 											 main thread <--EXITONLY--> UDP
 		# 											 UDP --> TCP (UDP will forward exit message to TCP when received ==> UDP server can't return exit until TCP has successfully exited)
-		
-		processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe), (ntpProcess, ntpMainPipe)]
+
+		processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe),
+		             (ntpProcess, ntpMainPipe)]
 		# Start them
 		udpProcess.start()
 		tcpProcess.start()
@@ -235,22 +247,28 @@ if __name__ == "__main__":
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
 				rc = pipe.recv()
-				print (f"Receiver handling message: {rc} (EXITSTRING = {EXITSTRING})")
-				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
-				print (f"Receiver handled message: {rc} (EXITSTRING = {EXITSTRING})")
+				print(
+				    f"Receiver handling message: {rc} (EXITSTRING = {EXITSTRING})"
+				)
+				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe,
+				                                ntpMainPipe)
+				print(
+				    f"Receiver handled message: {rc} (EXITSTRING = {EXITSTRING})"
+				)
 				if rc == EXITSTRING:
 					done = True
 	except KeyboardInterrupt:
 		# Every process/subprocess receives kb interrupt
 		# So we don't manually need to do anything here -they'll finish on their own
 		print("MAIN received keyboard interrupt, exiting...")
-		print("No exit signals sent - children will also receive KB interrupt signal.")
+		print(
+		    "No exit signals sent - children will also receive KB interrupt signal."
+		)
 	print("Main function loop ended, join()ing processes")
 	for process, _ in processes:
 		process.join()
 	print("Successfully joined all processes. Exiting...")
-	exit (0)
-
+	exit(0)
 
 # def main():
 # 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

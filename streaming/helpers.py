@@ -1,7 +1,9 @@
 from values import *
 import multiprocessing as mp
 
-def handleSenderInterprocessCommunication(receivedMessage, udpPipe : mp.Pipe, tcpPipe : mp.Pipe, ntpPipe : mp.Pipe):
+
+def handleSenderInterprocessCommunication(receivedMessage, udpPipe: mp.Pipe,
+                                          tcpPipe: mp.Pipe, ntpPipe: mp.Pipe):
 	# Handle interprocess pipe communication
 	# There's probably a more elegant way to implement this. Oh well.
 	if receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
@@ -34,7 +36,8 @@ def handleSenderInterprocessCommunication(receivedMessage, udpPipe : mp.Pipe, tc
 		print(f"Unhandled pipe message: {receivedMessage}")
 
 
-def handleReceiverInterprocessCommunication(receivedMessage, udpPipe, tcpPipe, ntpPipe):
+def handleReceiverInterprocessCommunication(receivedMessage, udpPipe, tcpPipe,
+                                            ntpPipe):
 	# Handle interprocess pipe communication
 	# There's probably a more elegant way to implement this. Oh well.
 	if receivedMessage[:len(NTPOFFSET)] == NTPOFFSET:
