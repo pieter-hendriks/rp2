@@ -2,7 +2,7 @@
 # Based on the NTP client used in ntplib
 # https://raw.githubusercontent.com/limifly/ntpserver/master/ntpserver.py
 
-# Updated to be compatible with Python3.9 and run as a separate process as part of a bigger application 
+# Updated to be compatible with Python3.9 and run as a separate process as part of a bigger application
 # Using Python's MultiProcessing module by Pieter Hendriks
 
 import datetime
@@ -12,6 +12,7 @@ import time
 import queue
 import threading
 import select
+
 
 from values import EXITSTRING
 
@@ -63,8 +64,8 @@ def _to_time(integ, frac, n=32):
     Retuns:
     timestamp
     """
-    return integ + float(frac)/2**n	
-		
+    return integ + float(frac)/2**n
+
 
 
 class NTPException(Exception):
@@ -127,7 +128,7 @@ class NTPPacket:
 
     This represents an NTP packet.
     """
-    
+
     _PACKET_FORMAT = "!B B B b 11I"
     """packet format to pack/unpack"""
 
@@ -169,7 +170,7 @@ class NTPPacket:
         self.tx_timestamp_high = 0
         self.tx_timestamp_low = 0
         """tansmit timestamp"""
-        
+
     def to_data(self):
         """Convert this NTPPacket to a buffer that can be sent over a socket.
 
@@ -242,7 +243,7 @@ class NTPPacket:
     def SetOriginTimeStamp(self,high,low):
         self.orig_timestamp_high = high
         self.orig_timestamp_low = low
-        
+
 
 class RecvThread(threading.Thread):
     def __init__(self,socket):
@@ -297,9 +298,9 @@ class WorkThread(threading.Thread):
                 # print "Sended to %s:%d" % (addr[0],addr[1])
             except queue.Empty:
                 continue
-                
+
 def runServer(pipe):
-	listenIp = "0.0.0.0"
+	listenIp = "192.168.1.26"
 	listenPort = 50123#123 # Modified to avoid having to run as super user (Can't bind to port < 1024 without privileges)
 	mysocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 	mysocket.bind((listenIp,listenPort))

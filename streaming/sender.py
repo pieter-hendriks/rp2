@@ -46,6 +46,7 @@ def udpFn(ctrlPipe):
 				print("Unexpected error in frame send!")
 
 		ctrlPipe.send(UDPSENDTIME + struct.pack(">d", time.time()))
+		print(f"Process should sleep roughtly {(frameStart + frametime) - time.time():.6f} seconds.")
 		while (time.time() < frameStart + frametime):
 			time.sleep(0.001) # I sure hope this doesn't sleep for far too long.
 		print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
