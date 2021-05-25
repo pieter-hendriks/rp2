@@ -129,7 +129,8 @@ def tcpFn(ctrlPipe: mp.Pipe):
 def udpFn(ctrlPipe: mp.Pipe):
 	def writeToFile(frameIndex, data):
 		filename = f"frame_{frameIndex}.jpg"
-		data = b''.join([x for _, x in data])
+		data = b''.join([x if x is not None else 0 for _, x in data])
+		
 		with open(filename, 'wb') as f:
 			f.write(data)
 		

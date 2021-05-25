@@ -7,8 +7,8 @@ randomFrameData = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
-		self.sender = '192.168.4.2'
-		self.receiver = '192.168.3.2'
+		self.sender = '192.168.3.2'
+		self.receiver = '192.168.4.2'
 
 		if useLAN:
 			self.ntpserver = '192.168.1.26'

@@ -13,8 +13,6 @@ import queue
 import threading
 import select
 
-from values import EXITSTRING
-
 taskQueue = queue.Queue()
 stopFlag = False
 
@@ -332,7 +330,7 @@ def runServer(pipe):
 	recvThread.start()
 	workThread = WorkThread(mysocket)
 	workThread.start()
-
+	EXITSTRING = b'EXIT'
 	while True:
 		try:
 			# This should be a blocking call. NTP functionality is in different threads, so this should be sufficient?
