@@ -127,6 +127,12 @@ def tcpFn(ctrlPipe: mp.Pipe):
 
 
 def udpFn(ctrlPipe: mp.Pipe):
+	def writeToFile(frameIndex, data):
+		filename = f"frame_{frameIndex}.jpg"
+		data = b''.join([x for _, x in data])
+		with open(filename, 'wb') as f:
+			f.write(data)
+		
 	timeOffset = 0
 	def handleMessages(pipe, offset=timeOffset):
 		msg = ctrlPipe.recv()
@@ -165,11 +171,11 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if len(frameData[frameid]) == 0:
 				# Ensure stuff is initialized when required
 				for i in range(segmentCount):
-					frameData[frameid][i] = None
+					frameData[frameid][i] = None, None
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
 			frameData[frameid][index] = (time.time() + timeOffset, content[struct.calcsize('>III'):])
-			
+			writeToFile(frameData[frameid])
 			# Record frame reception time
 			ctrlPipe.send(config.FRAMERECEIVED + config.framesize.to_bytes(4, byteorder='big') + struct.pack('>d', getTime(timeOffset)))
 			# Then go back to non-blocking
