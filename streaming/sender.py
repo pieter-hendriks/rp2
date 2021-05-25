@@ -2,7 +2,7 @@ import os
 import socket
 import time
 import matplotlib.pyplot as plot
-from values import UDPSENDTIME, EXITSTRING,TCPFRAMEREPORT,framesize,sender,tcpport,receiver,udpport,loopLength,frameSegments,frametime
+from values import config
 from ntp import ntpserver
 import struct
 import multiprocessing as mp
@@ -17,12 +17,10 @@ def tcpFn(ctrlPipe: mp.Pipe):
 	def handleExitCommunication(socket=s):
 		print("Sending TCP exit message over socket")
 		try:
-			socket.sendall(EXITSTRING)
+			socket.sendall(config.EXITSTRING)
 		except Exception as e:
 			if e.args == (32, "Broken pipe"):
-				print(
-				    f"Received broken pipeerror as part of TCP exit communication."
-				)
+				print("Received broken pipeerror as part of TCP exit communication.")
 				print("This may occur if receiver is not started.")
 			else:
 				raise e from None
@@ -30,28 +28,24 @@ def tcpFn(ctrlPipe: mp.Pipe):
 	def handleMessages(ctrlPipe: mp.Pipe):
 		if ctrlPipe.poll():
 			msg = ctrlPipe.recv()
-			if msg[:len(UDPSENDTIME)] == UDPSENDTIME:
-				s.send(TCPFRAMEREPORT +
-				       framesize.to_bytes(4, byteorder='big') +
-				       msg[len(UDPSENDTIME):])
-			elif msg[:len(EXITSTRING)] == EXITSTRING:
+			if msg[:len(config.UDPSENDTIME)] == config.UDPSENDTIME:
+				s.send(config.TCPFRAMEREPORT + msg[len(config.UDPSENDTIME):])
+			elif msg[:len(config.EXITSTRING)] == config.EXITSTRING:
 				print("TCP received exit from main, exiting...")
 				# Let the receiver know that we're done
 				handleExitCommunication()
 				# Then exit. No need to ctrlpipe anyhting since main is aware.
 				exit(0)
 			else:
-				print(
-				    f"TCP Function has received the following unhandled pipe message: {msg}"
-				)
+				print(f"TCP Function has received the following unhandled pipe message: {msg}")
 
-	s.bind((sender, tcpport))
+	s.bind((config.sender, config.tcpport))
 	connected = False
 	# First, we iterate until we've connected. During this period, we still listen for signals from main fn
 	while not connected:
 		handleMessages(ctrlPipe)
 		try:
-			s.connect((receiver, tcpport))
+			s.connect((config.receiver, config.tcpport))
 			connected = True
 		except Exception as e:
 			# If receiver not up yet, retry, else throw the error
@@ -83,40 +77,40 @@ def tcpFn(ctrlPipe: mp.Pipe):
 	handleExitCommunication()
 
 
+
 def udpFn(ctrlPipe):
-	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
-	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	s.bind((sender, udpport))
-	s.connect((receiver, udpport))
-	print(framesize)
-	for i in range(loopLength):
+	def handleControlMessage():
 		if ctrlPipe.poll():
 			rc = ctrlPipe.recv()
-			if rc[:len(EXITSTRING)] == EXITSTRING:
+			if rc[:len(config.EXITSTRING)] == config.EXITSTRING:
 				print("UDP sender received exit.")
 				exit(0)
 			else:
 				print(f"UDP Sender unhandled message: {rc}")
+	
+	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	s.bind((config.sender, config.udpport))
+	s.connect((config.receiver, config.udpport))
+	for frameIndex in range(config.loopLength):
+		handleControlMessage()
+		
 		frameStart = time.time()
-		for segment in range(len(frameSegments)):
-			ret = s.send(
-			    i.to_bytes(4, byteorder='big') +
-			    segment.to_bytes(4, byteorder='big') + frameSegments[segment])
-			if ret != 8 + len(frameSegments[segment]):
+		framedata = config.getFrameData(frameIndex)
+		for total, index, segment in config.getFrameSegments(framedata):
+			data = struct.pack('>III', frameIndex, total, index) + segment
+			ret = s.send(data)
+			#ret = s.send(i.to_bytes(4, byteorder='big') + segmentIndex.to_bytes(4, byteorder='big') + segment)
+			if ret != struct.calcsize('>III') + len(segment):
 				print("Unexpected error in frame send!")
-
-		ctrlPipe.send(UDPSENDTIME + struct.pack(">d", time.time()))
-		print(
-		    f"Process should sleep roughtly {(frameStart + frametime) - time.time():.6f} seconds."
-		)
-		while (time.time() < frameStart + frametime):
-			time.sleep(
-			    0.001)  # I sure hope this doesn't sleep for far too long.
-		print(
-		    f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds"
-		)
+		frameEnd = time.time()
+		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
+		#print(f"Process should sleep roughtly {(frameStart + frametime) - time.time():.6f} seconds.")
+		while (time.time() < frameStart + config.frametime):
+			time.sleep(0.001)
+		#print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
 	print("UDP function now sending exit string, loop is over.")
-	ctrlPipe.send(EXITSTRING)
+	ctrlPipe.send(config.EXITSTRING)
 	print("UDP exiting...")
 
 
@@ -124,9 +118,7 @@ if __name__ == "__main__":
 	# Create the NTP server process and its communication pipe
 	ntpName = 'NTP server'
 	ntpFnPipe, ntpMainPipe = mp.Pipe()
-	ntpProcess = mp.Process(name=ntpName,
-	                        target=ntpserver.runServer,
-	                        args=(ntpFnPipe, ))
+	ntpProcess = mp.Process(name=ntpName, target=ntpserver.runServer, args=(ntpFnPipe, ))
 
 	# Then the UDP frame sender
 	udpName = 'UDP frame sender'
@@ -139,10 +131,8 @@ if __name__ == "__main__":
 	tcpProcess = mp.Process(name=tcpName, target=tcpFn, args=(tcpFnPipe, ))
 
 	# Start the processes
-	processes = [
-	    (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe),
-	    (ntpProcess, ntpMainPipe)
-	]  # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
+	processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe),
+	             (ntpProcess, ntpMainPipe)]  # [(ntpProcess, ntpMainPipe), (udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe)]
 	for p, _ in processes:
 		p.start()
 	pipes = [p for _, p in processes]
@@ -151,9 +141,8 @@ if __name__ == "__main__":
 		readyPipes = mp.connection.wait(pipes)
 		for pipe in readyPipes:
 			rc = pipe.recv()
-			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe,
-			                                ntpMainPipe)
-			if rc == EXITSTRING:
+			handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
+			if rc == config.EXITSTRING:
 				done = True
 	print("Join()ing all processes...")
 	for p, _ in processes:

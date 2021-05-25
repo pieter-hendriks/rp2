@@ -1,0 +1,2 @@
+Send time recording: Record start of send, or end of send? Maybe both?
+	--> Currently doing both, but latency calculations may be hard if either first or last frame segment doesn't arrive

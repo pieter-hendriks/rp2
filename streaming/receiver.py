@@ -1,7 +1,7 @@
 import os
 import socket
 import time
-from values import EXITSTRING,ntpserver,ntpport,ntpversion,NTPOFFSET,ntpFrequency,receiver,tcpport,sender,udpport,PARTIALFRAME,frameSegmentSize,frameSegments,WRONGFRAMESIZE,FRAMERECEIVED,framesize
+from values import config
 import multiprocessing as mp
 import struct
 import ntplib
@@ -41,26 +41,22 @@ def ntpFn(ctrlPipe: mp.Pipe):
 			# Which would make this unreachable
 			if ctrlPipe.poll():
 				rc = ctrlPipe.recv()
-				if rc[:len(EXITSTRING)] == EXITSTRING:
+				if rc[:len(config.EXITSTRING)] == config.EXITSTRING:
 					print("NTP received exit string, now exiting...")
 					# Got this from main function, so simply exit without any signaling
 					exit(0)
 				else:
 					print(f"NTP received unhandled message: {rc}")
 			start = time.time()
-			response = client.request(ntpserver,
-			                          port=ntpport,
-			                          version=ntpversion)
-			ctrlPipe.send(f"{NTPOFFSET}{response.offset}")
-			time.sleep((1 / ntpFrequency) - (time.time() - start))
+			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion)
+			ctrlPipe.send(f"{config.NTPOFFSET}{response.offset}")
+			time.sleep((1 / config.ntpFrequency) - (time.time() - start))
 		except (socket.timeout, ntplib.NTPException) as e:
 			print(f"e type: {type(e)}, args = '{e.args[0]}'")
-			print(
-			    f"e type: {type(e)}, args = 'No response received from {ntpserver}.'"
-			)
+			print(f"e type: {type(e)}, args = 'No response received from {config.ntpserver}.'")
 			if e.args[0] in [
 			    'timed out',
-			    f'No response received from {ntpserver}.',
+			    f'No response received from {config.ntpserver}.',
 			]:
 				continue
 			else:
@@ -72,11 +68,11 @@ def ntpFn(ctrlPipe: mp.Pipe):
 
 def tcpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind((receiver, tcpport))
+	s.bind((config.receiver, config.tcpport))
 
 	def handleMessages(pipe):
 		msg = pipe.recv()
-		if msg[:len(EXITSTRING)] == EXITSTRING:
+		if msg[:len(config.EXITSTRING)] == config.EXITSTRING:
 			# Main function sent us this - so we don't have to do any signaling, we can just exit.
 			print("TCP received exit, now exiting...")
 			exit(0)
@@ -91,7 +87,7 @@ def tcpFn(ctrlPipe: mp.Pipe):
 				if pipe.poll():
 					handleMessages(pipe)
 				# then try connecting/setting the connection
-				socket.connect((sender, tcpport))
+				socket.connect((config.sender, config.tcpport))
 				connected = True
 			except Exception as e:
 				if e.args == (111, 'Connection refused'):
@@ -111,9 +107,9 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		try:
 			recv = s.recv(4096)
 			if (len(recv) > 0):
-				if recv[:len(EXITSTRING)] == EXITSTRING:
+				if recv[:len(config.EXITSTRING)] == config.EXITSTRING:
 					print("Received TCP exit")
-					ctrlPipe.send(EXITSTRING)
+					ctrlPipe.send(config.EXITSTRING)
 					exit(0)
 				else:
 					print(f"Received unhandled message on TCP channel: {recv}")
@@ -132,16 +128,15 @@ def tcpFn(ctrlPipe: mp.Pipe):
 
 def udpFn(ctrlPipe: mp.Pipe):
 	timeOffset = 0
-
 	def handleMessages(pipe, offset=timeOffset):
 		msg = ctrlPipe.recv()
 		# Handle exit
-		if msg[:len(EXITSTRING)] == EXITSTRING:
+		if msg[:len(config.EXITSTRING)] == config.EXITSTRING:
 			s.close()
 			ctrlPipe.close()
 			exit(0)
-		elif msg[:len(NTPOFFSET)] == NTPOFFSET:
-			offset = float(msg[len(NTPOFFSET):])
+		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
+			offset = float(msg[len(config.NTPOFFSET):])
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
 		else:
@@ -150,73 +145,39 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
-	s.bind((receiver, udpport))
-	carryover = None
+	s.bind((config.receiver, config.udpport))
+	frameData = {}
+	for i in range(config.loopLength):
+		frameData[i] = {}
 	while True:
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
-				timeOffset = handleMessages(ctrlPipe)
-			# Mark in case last segment is dropped
-			if carryover is None:
-				# Try to receive, will throw socket.timeout if no content
-				content = s.recv(1500)
-			else:
-				content = carryover
-				carryover = None
-			frameid, index = struct.unpack('>II', content[:8])
-			if index != 0:
-				print(
-				    f"First index received != 0. For frame {frameid}, we dropped packets 0 (inclusive) to {index} (exclusive)."
-				)
-				ctrlPipe.send(PARTIALFRAME)
-			# When we've received anything, block for a bit to receive all parts of the message
-			s.setblocking(True)
-			s.settimeout(0.5)
-			try:
-				marked = False
-				while True:
-					previous = index
-					recv = s.recv(1500)
-					segmentframeid, index = struct.unpack('>II', recv[:8])
-					#print(f"Received part {index} out of {len(frameSegments)} for frame {segmentframeid}")
-					if segmentframeid != frameid:
-						ctrlPipe.send(PARTIALFRAME)
-						carryover = recv
-						break
-					if index != previous + 1:
-						count = index - previous
-						# In actual implementation, we probably use some sort of storage to indicate we skip those bytes.
-						# And re-use the previous frame's values
-						content += bytes(count * frameSegmentSize)
-						if not marked:
-							print(
-							    f"Received partial frame for frameid = {frameid}, segments {previous} -> {index}, exclusive"
-							)
-							ctrlPipe.send(PARTIALFRAME)
-							marked = True
-					content += recv[8:]
-					if (index == len(frameSegments) - 1):
-						break
-			except socket.timeout as e:
-				# Report error if we encounter one (Packet dropped)
-				ctrlPipe.send(PARTIALFRAME)
-			print(f"Successfully handled frame id {frameid}")
-
-			# Report error, incorrect frame size received
-			if len(content) != framesize:
-				ctrlPipe.send(WRONGFRAMESIZE)
-
+				timeOffset = handleMessages(ctrlPipe, timeOffset)
+				
+			# Try to receive, will throw socket.timeout if no content
+			content = s.recv(1500)
+			if not content:
+				# TODO: Remove this if it doesn't turn out to be relevant
+				print("No content. Mark for testing.")
+				continue 
+			frameid, segmentCount, index = struct.unpack('>III', content[:struct.calcsize('>III')])
+			if len(frameData[frameid]) == 0:
+				# Ensure stuff is initialized when required
+				for i in range(segmentCount):
+					frameData[frameid][i] = None
+			# For the segment, record arrival time (including ntp offset) + the stuff we received.
+			# This should allow us to reconstruct the frames we received at a later stage if so desired
+			frameData[frameid][index] = (time.time() + timeOffset, content[struct.calcsize('>III'):])
+			
 			# Record frame reception time
-			ctrlPipe.send(FRAMERECEIVED +
-			              framesize.to_bytes(4, byteorder='big') +
-			              struct.pack('>d', getTime(timeOffset)))
+			ctrlPipe.send(config.FRAMERECEIVED + config.framesize.to_bytes(4, byteorder='big') + struct.pack('>d', getTime(timeOffset)))
 			# Then go back to non-blocking
 			s.setblocking(False)
 		except KeyboardInterrupt as e:
 			# Handle ctrlC
 			s.close()
-			ctrlPipe.send(EXITSTRING)
+			ctrlPipe.send(config.EXITSTRING)
 			ctrlPipe.close()
 			exit(0)
 		except socket.timeout as e:
@@ -233,8 +194,10 @@ def udpFn(ctrlPipe: mp.Pipe):
 				if e.args[0] == 11:
 					continue
 			else:
+				print(f"Socket error: {e}")
+				print("Exiting...")
 				s.close()
-				ctrlPipe.send(EXITSTRING)
+				ctrlPipe.send(config.EXITSTRING)
 				ctrlPipe.close()
 				exit(0)
 
@@ -264,8 +227,7 @@ if __name__ == "__main__":
 		# 											 main thread <--EXITONLY--> UDP
 		# 											 UDP --> TCP (UDP will forward exit message to TCP when received ==> UDP server can't return exit until TCP has successfully exited)
 
-		processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe),
-		             (ntpProcess, ntpMainPipe)]
+		processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe), (ntpProcess, ntpMainPipe)]
 		# Start them
 		udpProcess.start()
 		tcpProcess.start()
@@ -277,23 +239,16 @@ if __name__ == "__main__":
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
 				rc = pipe.recv()
-				print(
-				    f"Receiver handling message: {rc} (EXITSTRING = {EXITSTRING})"
-				)
-				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe,
-				                                ntpMainPipe)
-				print(
-				    f"Receiver handled message: {rc} (EXITSTRING = {EXITSTRING})"
-				)
-				if rc == EXITSTRING:
+				print(f"Receiver handling message: {rc} (EXITSTRING = {config.EXITSTRING})")
+				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
+				print(f"Receiver handled message: {rc} (EXITSTRING = {config.EXITSTRING})")
+				if rc == config.EXITSTRING:
 					done = True
 	except KeyboardInterrupt:
 		# Every process/subprocess receives kb interrupt
 		# So we don't manually need to do anything here -they'll finish on their own
 		print("MAIN received keyboard interrupt, exiting...")
-		print(
-		    "No exit signals sent - children will also receive KB interrupt signal."
-		)
+		print("No exit signals sent - children will also receive KB interrupt signal.")
 	print("Main function loop ended, join()ing processes")
 	for process, _ in processes:
 		process.join()

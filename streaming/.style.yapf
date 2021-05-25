@@ -1,2 +1,3 @@
 [style]
 USE_TABS=TRUE
+COLUMN_LIMIT = 140
