@@ -5,22 +5,22 @@ from datetime import datetime
 import string
 import random
 
-lan = True
+lan = False
 randomFrameData = True
 
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		# Amount of frames to send
-		self.loopLength = 1
+		self.loopLength = 100
 
 		# IP CONFIG
-		self.sender = '127.0.2.1'
-		self.receiver = '127.0.2.2'
+		self.sender = '192.168.3.2'
+		self.receiver = '192.168.4.2'
 
 		if useLAN:
-			self.ntpserver = '127.0.3.1'
-			self.ntpclient= '127.0.3.2'
+			self.ntpserver = '10.1.69.39'
+			self.ntpclient= '10.1.75.85'
 		else:
 			self.ntpserver = self.sender
 			self.ntpclient= self.receiver
@@ -29,7 +29,7 @@ class Configuration:
 		self.lastFrameIndex = -1
 		if useRandomFrameData:
 			# 900 kB per frame@30fps ~= 27000 kBps ~= 216000 kbps ~= 216 mbps
-			self.framesize = 90000
+			self.framesize = 45000
 			self.__framedata = b''
 			for _ in range(self.framesize):
 				self.__framedata += bytes(random.choice(string.ascii_letters), 'utf-8')
@@ -106,7 +106,7 @@ class Configuration:
 		self.__loggingDirectory = ''.join(['log/', importer, self.__loggingDirectory])
 		self.__imgOutDir = ''.join(['log/', importer, self.__imgOutDir])
 		os.mkdir(self.__loggingDirectory)
-		if importer == 'recv':
+		if importer == 'recv_':
 			os.mkdir(self.__imgOutDir)
 
 

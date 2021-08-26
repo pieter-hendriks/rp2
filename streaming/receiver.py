@@ -8,14 +8,14 @@ import struct
 import ntplib
 from datetime import datetime
 from helpers import handleReceiverInterprocessCommunication as handleInterprocessCommunication
-# -------       -------
+# -------				-------
 # | 2.1 | ~~~~~ | 2.2 |
-# | 3.1 |       | 4.1 |
-# -------       -------
-#    |             |
-# -------       -------
-# | 3.2 |       | 4.2 |
-# -------       -------
+# | 3.1 |				| 4.1 |
+# -------				-------
+#		 |						 |
+# -------				-------
+# | 3.2 |				| 4.2 |
+# -------				-------
 #
 # Receiver should run on 3.2.
 # Sender on 4.2
@@ -24,9 +24,9 @@ from helpers import handleReceiverInterprocessCommunication as handleInterproces
 # client = ntplib.NTPClient()
 # offset = 0
 # for _ in range(100):
-# 	response = client.request('192.168.1.26', port=ntpport, version=3)
-# 	print(response.offset)
-# 	time.sleep(0.3)
+#		response = client.request('192.168.1.26', port=ntpport, version=3)
+#		print(response.offset)
+#		time.sleep(0.3)
 
 
 def getTime(offset):
@@ -56,8 +56,8 @@ def ntpFn(ctrlPipe: mp.Pipe):
 		except (socket.timeout, ntplib.NTPException) as e:
 			print(f"e type: {type(e)}, args = '{e.args[0]}'")
 			if e.args[0] in [
-			    'timed out',
-			    f'No response received from {config.ntpserver}.',
+					'timed out',
+					f'No response received from {config.ntpserver}.',
 			]:
 				continue
 			else:
@@ -139,11 +139,15 @@ def udpFn(ctrlPipe: mp.Pipe):
 		#global imgBuffer, imgPrevious
 		#if imgPrevious != frameIndex:
 		filename = f"frame_{frameIndex}.jpg"
-		with open(config.getImgOutFilename(filename), 'ab') as f:
-			f.write(data)
-			#f.write(imgBuffer)
-		# 	imgBuffer = bytearray()
-		# 	imgPrevious = frameIndex
+		try:
+			with open(config.getImgOutFilename(filename), 'ab') as f:
+				f.write(data)
+		except e:
+			print(e)
+			raise e from None
+		#f.write(imgBuffer)
+		#		imgBuffer = bytearray()
+		#		imgPrevious = frameIndex
 		# imgBuffer += data
 
 
@@ -182,6 +186,12 @@ def udpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
 	s.bind((config.receiver, config.udpport))
+	s.connect((config.sender, config.udpport))
+	s.send(b"trigger") # Any content works, we just notify sender we're alive
+	# without this addition, sender would crash if started first
+	# Not a problem when doing things manually, a problem if they have to be started automatically 
+	# At as close a time together as possible
+
 	frameData = {}
 	for i in range(config.loopLength):
 		frameData[i] = {}
@@ -193,13 +203,13 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 			# Try to receive, will throw socket.timeout if no content
 			content = s.recv(1500)
+			#print("Receive maybe timeout")
 			if not content:
 				# TODO: Remove this if it doesn't turn out to be relevant
 				print("No content. Mark for testing.")
 				continue
-			print(f"Received content = {content}")
+			#print("Received content")
 			myBytes, segment = content[:struct.calcsize('>III')], content[struct.calcsize('>III'):]
-			print(f"Segment = {segment}")
 			frameid = struct.unpack('>I', myBytes[:4])[0]
 			segmentCount = struct.unpack('>I', myBytes[4:8])[0]
 			index = struct.unpack('>I', myBytes[8:12])[0]
@@ -211,6 +221,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
 			frameData[frameid][index] = (getTime(timeOffset), segment)
+			#print(f"writing segment to file: {segment}")
 			writeToFile(frameid, frameData[frameid][index][1])
 			# Discard framedata after writing to file, lets us save memory
 			frameData[frameid][index] = (frameData[frameid][index][0], None)
@@ -244,8 +255,6 @@ def udpFn(ctrlPipe: mp.Pipe):
 				ctrlPipe.send(config.EXITSTRING)
 				ctrlPipe.close()
 
-
-
 if __name__ == "__main__":
 	try:
 		# Basic setup of variables
@@ -264,12 +273,12 @@ if __name__ == "__main__":
 		ntpProcess = mp.Process(name=ntpName, target=ntpFn, args=(ntpFnPipe, ))
 
 		# Process comms:
-		# 		NTP client reports time offset to main process, main process forwards to TCP and UDP.
-		# 		Main thread and UDP only exchange exit messages.
+		#			NTP client reports time offset to main process, main process forwards to TCP and UDP.
+		#			Main thread and UDP only exchange exit messages.
 		#
 		# Process communication: main thread <--EXITONLY--> NTP server
-		# 											 main thread <--EXITONLY--> UDP
-		# 											 UDP --> TCP (UDP will forward exit message to TCP when received ==> UDP server can't return exit until TCP has successfully exited)
+		#												 main thread <--EXITONLY--> UDP
+		#												 UDP --> TCP (UDP will forward exit message to TCP when received ==> UDP server can't return exit until TCP has successfully exited)
 
 		processes = [(udpProcess, udpMainPipe), (tcpProcess, tcpMainPipe), (ntpProcess, ntpMainPipe)]
 		# Start them

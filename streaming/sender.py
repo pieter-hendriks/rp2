@@ -102,6 +102,15 @@ def udpFn(ctrlPipe):
 	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind((config.sender, config.udpport))
+	alive = False
+	while (not alive):
+		s.setblocking(True)
+		try:
+			content = s.recv(100)
+			if content != 0:
+				alive = True
+		except Exception as e:
+			print("UDP sender waiting for poll message. If this error is not a timeout, please fix:\n" + e)
 	s.connect((config.receiver, config.udpport))
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
