@@ -1,5 +1,7 @@
-from os import urandom as rnd
+import os
 from math import ceil
+import time
+from datetime import datetime
 
 lan = True
 randomFrameData = False
@@ -7,12 +9,14 @@ randomFrameData = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
-		self.sender = '192.168.3.2'
-		self.receiver = '192.168.4.2'
+		self.sender = '127.0.2.1'
+		self.receiver = '127.0.2.2'
+
+		self.lastFrameIndex = -1
 
 		if useLAN:
-			self.ntpserver = '192.168.1.26'
-			self.ntpclient= '192.168.1.8'
+			self.ntpserver = '127.0.3.1'
+			self.ntpclient= '127.0.3.2'
 		else:
 			self.ntpserver = self.sender
 			self.ntpclient= self.receiver
@@ -21,16 +25,18 @@ class Configuration:
 		if useRandomFrameData:
 			# 900 kB per frame@30fps ~= 27000 kBps ~= 216000 kbps ~= 216 mbps
 			self.framesize = 900000
-			self.__framedata = rnd(self.framesize)
+			self.__framedata = os.urandom(self.framesize)
 			self.getFrameData = lambda _: self.__framedata
+			self.getFrameSize = lambda _: self.framesize
 		else:
 			self.getFrameData = self.__getFrameData
+			self.getFrameSize = lambda _: len(self.__getFrameData(self.lastFrameIndex))
 			self.frameInputDirectory = 'frames'
 			self.frameFileNameTemplate = 'frame_#.jpg'
 		self.framerate = 30
 		self.frametime = 1/self.framerate
 		# Amount of frames to send
-		self.loopLength = 5
+		self.loopLength = 1
 		# How large to make the frame segments
 		# Since we have an ethernet connection computer->router we are limited by ethernet MTU of 1500 bytes.
 		# We set this value to be comfortably below that limit to be safe.
@@ -56,13 +62,17 @@ class Configuration:
 		self.FRAMERECEIVED = b'URF'
 		self.NTPOFFSET = b'NOS'
 
-		self.__loggingDirectory = 'log'
+		self.__loggingDirectory = f'log_{datetime.now().isoformat()}'
+		self.__imgOutDir = f'img_{datetime.now().isoformat()}'
 		self.__logFileNameTemplate = '#.log'
 		self.firstFrame = False
 
-	def getLogFileName(self, type):
-		return f"{self.__loggingDirectory}/{self.__logFileNameTemplate.replace('#', type)}"
+	def getLogFileName(self, logfile):
+		return f"{self.__loggingDirectory}/{self.__logFileNameTemplate.replace('#', logfile)}"
+	def getImgOutFilename(self, img):
+		return f"{self.__imgOutDir}/{img}"
 	def __getFrameData(self, frameIndex: int):
+		self.lastFrameIndex = frameIndex
 		with open(f"{self.frameInputDirectory}/{self.frameFileNameTemplate.replace('#', str(frameIndex))}", 'rb') as f:
 			# File size should fit within memory to avoid everything breaking
 			# But that seems like a reasonable assumption in this case
@@ -81,7 +91,16 @@ class Configuration:
 		return self.firstFrame
 	def markFrameDone(self):
 		self.firstFrame = True
-
+	def createLogDirectories(self, importer):
+		# IMporter should be either 'sender' or 'receiver', is used to distinguish log directories.
+		if (not os.path.isdir('log')):
+			if os.path.isfile('log'):
+				os.remove('log')
+			os.mkdir('log')
+		self.__loggingDirectory = ''.join(['log/', importer, self.__loggingDirectory])
+		self.__imgOutDir = ''.join(['log/', importer, self.__imgOutDir])
+		os.mkdir(self.__loggingDirectory)
+		os.mkdir(self.__imgOutDir)
 
 
 config = Configuration(lan, randomFrameData)

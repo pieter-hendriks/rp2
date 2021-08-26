@@ -3,6 +3,7 @@ import socket
 import time
 import matplotlib.pyplot as plot
 from values import config
+config.createLogDirectories('send_')
 from ntp import ntpserver
 import struct
 import multiprocessing as mp
@@ -66,19 +67,22 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
 				print(f"Encountered unexpected error in tcp fn: {e}")
+				handleExitCommunication()
+				raise e
 		except BlockingIOError as e:
 			if e.args == (11, 'Resource temporarily unavailable'):
 				continue
 			else:
+				handleExitCommunication()
 				raise e from None
 		s.setblocking(True)
 		# If neither pipe nor socket has messages, yield thread
 		#time.sleep(0.005)
-	handleExitCommunication()
 
 
 
 def udpFn(ctrlPipe):
+	time.sleep(5)
 	def handleControlMessage():
 		if ctrlPipe.poll():
 			rc = ctrlPipe.recv()
@@ -94,7 +98,6 @@ def udpFn(ctrlPipe):
 	s.connect((config.receiver, config.udpport))
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
-		
 		frameStart = time.time()
 		framedata = config.getFrameData(frameIndex)
 		for total, index, segment in config.getFrameSegments(framedata):
@@ -105,10 +108,8 @@ def udpFn(ctrlPipe):
 				print("Unexpected error in frame send!")
 		frameEnd = time.time()
 		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
-		#print(f"Process should sleep roughtly {(frameStart + frametime) - time.time():.6f} seconds.")
 		while (time.time() < frameStart + config.frametime):
 			time.sleep(0.001)
-		#print(f"Inter-frame sleep over; off by {time.time() - (frameStart + frametime):.6f} seconds")
 	print("UDP function now sending exit string, loop is over.")
 	ctrlPipe.send(config.EXITSTRING)
 	print("UDP exiting...")

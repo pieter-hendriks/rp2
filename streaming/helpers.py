@@ -21,10 +21,9 @@ def handleSenderInterprocessCommunication(receivedMessage, udpPipe: mp.Pipe, tcp
 		# These are sent with two doubles, the time we start sending and time we stop sending.
 		# Send occurs in between these two values.
 		sendStart, sendEnd = struct.unpack('>dd', receivedMessage[len(config.UDPSENDTIME):])
-		openMode = 'w' if config.isFirstFrame() else 'a'
-		with open(config.getLogFileName("sendStartTimes"), openMode) as f:
+		with open(config.getLogFileName("sendStartTimes"), 'a') as f:
 			f.write(f"{sendStart}, ")
-		with open(config.getLogFileName("sendEndTimes"), openMode) as f:
+		with open(config.getLogFileName("sendEndTimes"), 'a') as f:
 			f.write(f"{sendEnd}, ")
 		config.markFrameDone()
 	elif receivedMessage[:len(config.TCPFRAMEREPORT)] == config.TCPFRAMEREPORT:
@@ -37,6 +36,7 @@ def handleSenderInterprocessCommunication(receivedMessage, udpPipe: mp.Pipe, tcp
 		print("implement PARTIALFRAME handling pls")
 	elif receivedMessage[:len(config.FRAMERECEIVED)] == config.FRAMERECEIVED:
 		print("implement FRAMERECEIVED handling pls")
+		raise 1 # Shouldn't happen on sender side
 	elif receivedMessage[:len(config.NTPOFFSET)] == config.NTPOFFSET:
 		print("implement NTPOFFSET handling pls")
 	else:
@@ -67,8 +67,16 @@ def handleReceiverInterprocessCommunication(receivedMessage, udpPipe: mp.Pipe, t
 	elif receivedMessage[:len(config.PARTIALFRAME)] == config.PARTIALFRAME:
 		print("implement PARTIALFRAME handling pls")
 	elif receivedMessage[:len(config.FRAMERECEIVED)] == config.FRAMERECEIVED:
-		print("implement FRAMERECEIVED handling pls")
+		with open(config.getLogFileName("arrivalTimes"), "a") as f:
+			receivedMessage = receivedMessage[len(config.FRAMERECEIVED):]
+			value = struct.unpack('>d', receivedMessage)[0]
+			f.write(f"{value}")
+			f.write('\n')
 	elif receivedMessage[:len(config.NTPOFFSET)] == config.NTPOFFSET:
-		print("implement NTPOFFSET handling pls")
+		udpPipe.send(receivedMessage)
+		tcpPipe.send(receivedMessage)
 	else:
+		print(len(config.NTPOFFSET))
+		print(config.NTPOFFSET)
+		print(receivedMessage[:20])
 		print(f"Unhandled pipe message: {receivedMessage}")

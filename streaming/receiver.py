@@ -2,6 +2,7 @@ import os
 import socket
 import time
 from values import config
+config.createLogDirectories('recv_')
 import multiprocessing as mp
 import struct
 import ntplib
@@ -48,12 +49,12 @@ def ntpFn(ctrlPipe: mp.Pipe):
 				else:
 					print(f"NTP received unhandled message: {rc}")
 			start = time.time()
-			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion)
-			ctrlPipe.send(f"{config.NTPOFFSET}{response.offset}")
+			print("NTP RQ GO")
+			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion,timeout=1.5)
+			ctrlPipe.send(config.NTPOFFSET + struct.pack('>d', response.offset))
 			time.sleep((1 / config.ntpFrequency) - (time.time() - start))
 		except (socket.timeout, ntplib.NTPException) as e:
 			print(f"e type: {type(e)}, args = '{e.args[0]}'")
-			print(f"e type: {type(e)}, args = 'No response received from {config.ntpserver}.'")
 			if e.args[0] in [
 			    'timed out',
 			    f'No response received from {config.ntpserver}.',
@@ -76,6 +77,9 @@ def tcpFn(ctrlPipe: mp.Pipe):
 			# Main function sent us this - so we don't have to do any signaling, we can just exit.
 			print("TCP received exit, now exiting...")
 			exit(0)
+		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
+			# Do nothing here, timestamps are used in UDP fn
+			pass
 		else:
 			print(f"TCP FN receiver, unhandled pipe message: {msg}")
 
@@ -125,17 +129,29 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		# # If neither pipe nor socket has messages, yield thread
 		# time.sleep(0)
 
-
+writeSize = 0
 def udpFn(ctrlPipe: mp.Pipe):
 	def writeToFile(frameIndex, data):
+		global writeSize
 		filename = f"frame_{frameIndex}.jpg"
-		data = b''.join([x if x is not None else 0 for _, x in data])
-		
-		with open(filename, 'wb') as f:
-			f.write(data)
+		writeSize += len(data)
+		print(f"Total bytes written = {writeSize}")
+		with open(config.getImgOutFilename(filename), 'ab') as f:
+			f.write(bytearray(data))
+
+	def writeOffset(offset):
+		with open(config.getLogFileName("ntpoffsets"), 'a') as f:
+			f.write(f"{(time.time(), offset)}")
+			f.write("\n")
+
+	def writeSegmentArrivalTime(frameid, segmentid, timestamp):
+		with open(config.getLogFileName('segment_arrivals'), 'a') as f:
+			f.write(', '.join([frameid.__repr__(), segmentid.__repr__(), timestamp.__repr__()]))
+			f.write('\n')
 		
 	timeOffset = 0
-	def handleMessages(pipe, offset=timeOffset):
+	def handleMessages(pipe):
+		global timeOffset
 		msg = ctrlPipe.recv()
 		# Handle exit
 		if msg[:len(config.EXITSTRING)] == config.EXITSTRING:
@@ -143,12 +159,12 @@ def udpFn(ctrlPipe: mp.Pipe):
 			ctrlPipe.close()
 			exit(0)
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
-			offset = float(msg[len(config.NTPOFFSET):])
+			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])
+			writeOffset(timeOffset)
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
 		else:
 			print(f"Unhandled msg in udp function, receiver: {msg}")
-		return offset
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.setblocking(False)
@@ -160,7 +176,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
-				timeOffset = handleMessages(ctrlPipe, timeOffset)
+				handleMessages(ctrlPipe)
 				
 			# Try to receive, will throw socket.timeout if no content
 			content = s.recv(1500)
@@ -168,17 +184,24 @@ def udpFn(ctrlPipe: mp.Pipe):
 				# TODO: Remove this if it doesn't turn out to be relevant
 				print("No content. Mark for testing.")
 				continue 
-			frameid, segmentCount, index = struct.unpack('>III', content[:struct.calcsize('>III')])
+			myBytes, segment = content[:struct.calcsize('>III')], content[struct.calcsize('>III'):]
+			frameid = struct.unpack('>I', myBytes[:4])[0]
+			segmentCount = struct.unpack('>I', myBytes[4:8])[0]
+			index = struct.unpack('>I', myBytes[8:12])[0]
+			#frameid, segmentCount, index = struct.unpack('>III', myBytes)
 			if len(frameData[frameid]) == 0:
 				# Ensure stuff is initialized when required
 				for i in range(segmentCount):
 					frameData[frameid][i] = None, None
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
-			frameData[frameid][index] = (time.time() + timeOffset, content[struct.calcsize('>III'):])
-			writeToFile(frameData[frameid])
+			frameData[frameid][index] = (getTime(timeOffset), segment)
+			writeToFile(frameid, frameData[frameid][index][1])
+			# Discard framedata after writing to file, lets us save memory
+			frameData[frameid][index] = (frameData[frameid][index][0], None)
+			writeSegmentArrivalTime(frameid, index, getTime(timeOffset))
 			# Record frame reception time
-			ctrlPipe.send(config.FRAMERECEIVED + config.framesize.to_bytes(4, byteorder='big') + struct.pack('>d', getTime(timeOffset)))
+			ctrlPipe.send(config.FRAMERECEIVED + struct.pack('>d', getTime(timeOffset)))
 			# Then go back to non-blocking
 			s.setblocking(False)
 		except KeyboardInterrupt as e:
@@ -186,7 +209,6 @@ def udpFn(ctrlPipe: mp.Pipe):
 			s.close()
 			ctrlPipe.send(config.EXITSTRING)
 			ctrlPipe.close()
-			exit(0)
 		except socket.timeout as e:
 			# Handle socket time outs
 			print(f"Received socket.timeout: {e}")
@@ -206,7 +228,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 				s.close()
 				ctrlPipe.send(config.EXITSTRING)
 				ctrlPipe.close()
-				exit(0)
+			
 
 
 if __name__ == "__main__":
@@ -246,9 +268,9 @@ if __name__ == "__main__":
 			readyPipes = mp.connection.wait(pipes)
 			for pipe in readyPipes:
 				rc = pipe.recv()
-				print(f"Receiver handling message: {rc} (EXITSTRING = {config.EXITSTRING})")
+				#print(f"Receiver handling message: {rc} (EXITSTRING = {config.EXITSTRING})")
 				handleInterprocessCommunication(rc, udpMainPipe, tcpMainPipe, ntpMainPipe)
-				print(f"Receiver handled message: {rc} (EXITSTRING = {config.EXITSTRING})")
+				#print(f"Receiver handled message: {rc} (EXITSTRING = {config.EXITSTRING})")
 				if rc == config.EXITSTRING:
 					done = True
 	except KeyboardInterrupt:
@@ -261,28 +283,3 @@ if __name__ == "__main__":
 		process.join()
 	print("Successfully joined all processes. Exiting...")
 	exit(0)
-
-# def main():
-# 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# 	try:
-# 		s.bind((receiver, udpport))
-# 		s.listen(1)
-# 		total = 0
-# 		soc, addr = s.accept()
-# 		for i in range(loopLength):
-# 			frame = soc.recv(8192)
-# 			# Mark start on first iteration
-# 			if i == 0:
-# 				start = time.time()
-# 			# Ensure we keep .recv()'ing until we've recv()'d the entire frame
-# 			while (len(frame) < framesize):
-# 				frame += soc.recv(framesize - len(frame))
-# 			# Send the ack
-# 			soc.sendto(ackmsg, addr)
-# 			# Add frame to received total size
-# 			total += len(frame)
-# 		# Record end time and output data
-# 		end = time.time()
-# 		print(f"Received {total} bytes of data, over {loopLength} frames.\nThis occured over {float(int(10 * (end - start)) / 10)} seconds (goal time was {float(int(10 * (loopLength/framerate)) / 10)} seconds).")
-# 	finally:
-# 		s.close()

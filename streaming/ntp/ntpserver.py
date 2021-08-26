@@ -264,6 +264,7 @@ class RecvThread(threading.Thread):
 				for tempSocket in rlist:
 					try:
 						data, addr = tempSocket.recvfrom(1024)
+						print("NTP RQ RECV")
 						recvTimestamp = recvTimestamp = system_to_ntp_time(
 						    time.time())
 						taskQueue.put((data, addr, recvTimestamp))
@@ -322,7 +323,8 @@ def handleExit(recv, work, socket):
 	
 
 def runServer(pipe):
-	listenIp = "192.168.1.26"
+	from values import config
+	listenIp = config.ntpserver
 	listenPort = 50123  #123 # Modified to avoid having to run as super user (Can't bind to port < 1024 without privileges)
 	mysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	mysocket.bind((listenIp, listenPort))
