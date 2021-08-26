@@ -98,7 +98,7 @@ def udpFn(ctrlPipe):
 				exit(0)
 			else:
 				print(f"UDP Sender unhandled message: {rc}")
-	
+
 	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind((config.sender, config.udpport))
@@ -106,11 +106,11 @@ def udpFn(ctrlPipe):
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
 		frameStart = time.time()
-		framedata = config.getFrameData(frameIndex)
+		framedata = config.getFrameData(frameIndex + 85)
 		for total, index, segment in config.getFrameSegments(framedata):
 			data = struct.pack('>III', frameIndex, total, index) + segment
-			writeSegmentSend(frameIndex, index, time.time())
 			ret = s.send(data)
+			writeSegmentSend(frameIndex, index, time.time())
 			#ret = s.send(i.to_bytes(4, byteorder='big') + segmentIndex.to_bytes(4, byteorder='big') + segment)
 			if ret != struct.calcsize('>III') + len(segment):
 				print("Unexpected error in frame send!")

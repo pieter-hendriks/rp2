@@ -2,9 +2,11 @@ import os
 from math import ceil
 import time
 from datetime import datetime
+import string
+import random
 
 lan = True
-randomFrameData = False
+randomFrameData = True
 
 
 class Configuration:
@@ -27,8 +29,11 @@ class Configuration:
 		self.lastFrameIndex = -1
 		if useRandomFrameData:
 			# 900 kB per frame@30fps ~= 27000 kBps ~= 216000 kbps ~= 216 mbps
-			self.framesize = 900000
-			self.__framedata = os.urandom(self.framesize)
+			self.framesize = 90000
+			self.__framedata = b''
+			for _ in range(self.framesize):
+				self.__framedata += bytes(random.choice(string.ascii_letters), 'utf-8')
+			#self.__framedata = os.urandom(self.framesize)
 			self.getFrameData = lambda _: self.__framedata
 			self.getFrameSize = lambda _: self.framesize
 		else:
@@ -87,7 +92,7 @@ class Configuration:
 		count = self.getFrameSegmentCount(frameData)
 		for i in range(count):
 			yield count, i, frameData[i * self.frameSegmentSize: (i+1) * self.frameSegmentSize]
-		
+
 	def isFirstFrame(self):
 		return self.firstFrame
 	def markFrameDone(self):
@@ -101,7 +106,8 @@ class Configuration:
 		self.__loggingDirectory = ''.join(['log/', importer, self.__loggingDirectory])
 		self.__imgOutDir = ''.join(['log/', importer, self.__imgOutDir])
 		os.mkdir(self.__loggingDirectory)
-		os.mkdir(self.__imgOutDir)
+		if importer == 'recv':
+			os.mkdir(self.__imgOutDir)
 
 
 config = Configuration(lan, randomFrameData)

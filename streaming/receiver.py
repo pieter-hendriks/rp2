@@ -145,8 +145,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 		# 	imgBuffer = bytearray()
 		# 	imgPrevious = frameIndex
 		# imgBuffer += data
-		
-			
+
+
 
 	def writeOffset(offset):
 		with open(config.getLogFileName("ntpoffsets"), 'a') as f:
@@ -161,7 +161,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			segmentPrevious = frameid
 		segmentBuffer.append(f"({frameid}, {segmentid}, {timestamp})\n")
 
-		
+
 	timeOffset = 0
 	def handleMessages(pipe):
 		global timeOffset
@@ -190,14 +190,16 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# Check for control message
 			if ctrlPipe.poll():
 				handleMessages(ctrlPipe)
-				
+
 			# Try to receive, will throw socket.timeout if no content
 			content = s.recv(1500)
 			if not content:
 				# TODO: Remove this if it doesn't turn out to be relevant
 				print("No content. Mark for testing.")
-				continue 
+				continue
+			print(f"Received content = {content}")
 			myBytes, segment = content[:struct.calcsize('>III')], content[struct.calcsize('>III'):]
+			print(f"Segment = {segment}")
 			frameid = struct.unpack('>I', myBytes[:4])[0]
 			segmentCount = struct.unpack('>I', myBytes[4:8])[0]
 			index = struct.unpack('>I', myBytes[8:12])[0]
@@ -241,7 +243,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 				s.close()
 				ctrlPipe.send(config.EXITSTRING)
 				ctrlPipe.close()
-			
+
 
 
 if __name__ == "__main__":
