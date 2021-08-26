@@ -10,7 +10,7 @@ randomFrameData = False
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		# Amount of frames to send
-		self.loopLength = 120
+		self.loopLength = 1
 
 		# IP CONFIG
 		self.sender = '127.0.2.1'
