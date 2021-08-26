@@ -130,24 +130,37 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		# time.sleep(0)
 
 writeSize = 0
+imgBuffer = bytearray()
+imgPrevious = 0
+segmentBuffer = []
+segmentPrevious = 0
 def udpFn(ctrlPipe: mp.Pipe):
 	def writeToFile(frameIndex, data):
-		global writeSize
+		#global imgBuffer, imgPrevious
+		#if imgPrevious != frameIndex:
 		filename = f"frame_{frameIndex}.jpg"
-		writeSize += len(data)
-		print(f"Total bytes written = {writeSize}")
 		with open(config.getImgOutFilename(filename), 'ab') as f:
-			f.write(bytearray(data))
+			f.write(data)
+			#f.write(imgBuffer)
+		# 	imgBuffer = bytearray()
+		# 	imgPrevious = frameIndex
+		# imgBuffer += data
+		
+			
 
 	def writeOffset(offset):
 		with open(config.getLogFileName("ntpoffsets"), 'a') as f:
 			f.write(f"{(time.time(), offset)}")
 			f.write("\n")
-
 	def writeSegmentArrivalTime(frameid, segmentid, timestamp):
-		with open(config.getLogFileName('segment_arrivals'), 'a') as f:
-			f.write(', '.join([frameid.__repr__(), segmentid.__repr__(), timestamp.__repr__()]))
-			f.write('\n')
+		global segmentBuffer, segmentPrevious
+		if frameid != segmentPrevious:
+			with open(config.getLogFileName('segment_arrivals'), 'a') as f:
+				f.write(''.join(segmentBuffer))
+			segmentBuffer = []
+			segmentPrevious = frameid
+		segmentBuffer.append(f"({frameid}, {segmentid}, {timestamp})\n")
+
 		
 	timeOffset = 0
 	def handleMessages(pipe):

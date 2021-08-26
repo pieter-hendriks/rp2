@@ -9,10 +9,12 @@ randomFrameData = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
+		# Amount of frames to send
+		self.loopLength = 120
+
+		# IP CONFIG
 		self.sender = '127.0.2.1'
 		self.receiver = '127.0.2.2'
-
-		self.lastFrameIndex = -1
 
 		if useLAN:
 			self.ntpserver = '127.0.3.1'
@@ -22,6 +24,7 @@ class Configuration:
 			self.ntpclient= self.receiver
 
 		# Frame sending configuration
+		self.lastFrameIndex = -1
 		if useRandomFrameData:
 			# 900 kB per frame@30fps ~= 27000 kBps ~= 216000 kbps ~= 216 mbps
 			self.framesize = 900000
@@ -35,14 +38,12 @@ class Configuration:
 			self.frameFileNameTemplate = 'frame_#.jpg'
 		self.framerate = 30
 		self.frametime = 1/self.framerate
-		# Amount of frames to send
-		self.loopLength = 1
 		# How large to make the frame segments
 		# Since we have an ethernet connection computer->router we are limited by ethernet MTU of 1500 bytes.
 		# We set this value to be comfortably below that limit to be safe.
 		self.frameSegmentSize  = 1280
 
-
+		# Port config
 		self.udpport = 50000
 		self.tcpport = 50001
 		self.ntpport = 50123
@@ -61,12 +62,12 @@ class Configuration:
 		self.WRONGFRAMESIZE = b'UBF'
 		self.FRAMERECEIVED = b'URF'
 		self.NTPOFFSET = b'NOS'
-
+		# Some output configuration
 		self.__loggingDirectory = f'log_{datetime.now().isoformat()}'
 		self.__imgOutDir = f'img_{datetime.now().isoformat()}'
 		self.__logFileNameTemplate = '#.log'
 		self.firstFrame = False
-
+	# Helper functions, probably misplaced, ohwell
 	def getLogFileName(self, logfile):
 		return f"{self.__loggingDirectory}/{self.__logFileNameTemplate.replace('#', logfile)}"
 	def getImgOutFilename(self, img):

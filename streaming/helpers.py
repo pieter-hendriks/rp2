@@ -22,9 +22,9 @@ def handleSenderInterprocessCommunication(receivedMessage, udpPipe: mp.Pipe, tcp
 		# Send occurs in between these two values.
 		sendStart, sendEnd = struct.unpack('>dd', receivedMessage[len(config.UDPSENDTIME):])
 		with open(config.getLogFileName("sendStartTimes"), 'a') as f:
-			f.write(f"{sendStart}, ")
+			f.write(f"{sendStart}\n")
 		with open(config.getLogFileName("sendEndTimes"), 'a') as f:
-			f.write(f"{sendEnd}, ")
+			f.write(f"{sendEnd}\n")
 		config.markFrameDone()
 	elif receivedMessage[:len(config.TCPFRAMEREPORT)] == config.TCPFRAMEREPORT:
 		print("implement TCPFRAMEREPORT handling pls")

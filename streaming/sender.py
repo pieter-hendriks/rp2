@@ -79,10 +79,17 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		# If neither pipe nor socket has messages, yield thread
 		#time.sleep(0.005)
 
-
+segmentStore = []
+previous = 0
+def writeSegmentSend(frameIndex, segmentIndex, timestamp):
+	global previous, segmentStore
+	segmentStore.append(f"({frameIndex}, {segmentIndex}, {timestamp})\n")
+	if frameIndex != previous:
+		previous = frameIndex
+		with open(config.getLogFileName('segment_send'), 'a') as f:
+			f.write(''.join(segmentStore))
 
 def udpFn(ctrlPipe):
-	time.sleep(5)
 	def handleControlMessage():
 		if ctrlPipe.poll():
 			rc = ctrlPipe.recv()
@@ -102,6 +109,7 @@ def udpFn(ctrlPipe):
 		framedata = config.getFrameData(frameIndex)
 		for total, index, segment in config.getFrameSegments(framedata):
 			data = struct.pack('>III', frameIndex, total, index) + segment
+			writeSegmentSend(frameIndex, index, time.time())
 			ret = s.send(data)
 			#ret = s.send(i.to_bytes(4, byteorder='big') + segmentIndex.to_bytes(4, byteorder='big') + segment)
 			if ret != struct.calcsize('>III') + len(segment):
