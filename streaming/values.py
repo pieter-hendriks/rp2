@@ -78,6 +78,7 @@ class Configuration:
 	def getImgOutFilename(self, img):
 		return f"{self.__imgOutDir}/{img}"
 	def __getFrameData(self, frameIndex: int):
+		print(f"__getFrameData for frame_{frameIndex} at {time.time()}")
 		assert frameIndex >= 0
 		self.lastFrameIndex = frameIndex
 		with open(f"{self.frameInputDirectory}/{self.frameFileNameTemplate.replace('#', str(frameIndex))}", 'rb') as f:
