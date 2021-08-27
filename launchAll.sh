@@ -6,6 +6,7 @@ launchRobotStuff() {
 
 launchLocalStuff() {
   echo "Issuing local commands"
+  cd ~/school/rp2/streaming
   source ~/school/rp2/venv/bin/activate
   python ~/school/rp2/streaming/sender.py
   deactivate
