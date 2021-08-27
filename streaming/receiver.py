@@ -266,7 +266,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 	global frameData
 	for i in range(config.loopLength):
 		frameData[i] = {}
-	s.settimeout(1.0) # 1 second timeout
+	s.settimeout(5)
 	while True:
 		try:
 			# Check for control message
