@@ -140,6 +140,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 	def doExit():
 		global frameData
 		writeSegmentArrivalTime(-1, -1, -1)
+		writeToFile(frameData)
 		s.close()
 		try:
 			ctrlPipe.send(config.EXITSTRING)
@@ -153,19 +154,22 @@ def udpFn(ctrlPipe: mp.Pipe):
 		# 	print(frameData[key])
 		# 	print(key)
 
-	# def writeToFile(frameData):
-	# 	#global imgBuffer, imgPrevious
-	# 	#if imgPrevious != frameIndex:
-	# 	for frameIndex in frameData:
-	# 		filename = f"frame_{frameIndex}.jpg"
-	# 		with open(config.getImgOutFilename(filename), 'wb') as f:
-	# 			for segmentIndex in frameData[frameIndex]:
-	# 				if frameData[frameIndex][segmentIndex][1] is not None:
-	# 					f.write(frameData[frameIndex][segmentIndex][1])
-	def writeToFile(frameIndex, data):
-		filename = f"frame_{frameIndex}.jpg"
-		with open(config.getImgOutFilename(filename), 'ab') as f:
-			f.write(data)
+	def writeToFile(frameData):
+		#global imgBuffer, imgPrevious
+		#if imgPrevious != frameIndex:
+		for frameIndex in frameData:
+			filename = f"frame_{frameIndex}.jpg"
+			segmentCount = frameData[f"frame_{frameIndex}_segments"]
+			with open(config.getImgOutFilename(filename), 'wb') as f:
+				for segmentIndex in range(segmentCount):
+					if frameData[frameIndex][segmentIndex][1] is not None:
+						f.write(frameData[frameIndex][segmentIndex][1])
+					else:
+						f.write(b'0'*1280)
+	# def writeToFile(frameIndex, data):
+	# 	filename = f"frame_{frameIndex}.jpg"
+	# 	with open(config.getImgOutFilename(filename), 'ab') as f:
+	# 		f.write(data)
 
 
 	def writeOffset(offset):
@@ -233,13 +237,14 @@ def udpFn(ctrlPipe: mp.Pipe):
 			segmentCount = struct.unpack('>I', myBytes[4:8])[0]
 			index = struct.unpack('>I', myBytes[8:12])[0]
 			#frameid, segmentCount, index = struct.unpack('>III', myBytes)
+			frameData[f"frame_{frameid}_segments"] = segmentCount
 			if len(frameData[frameid]) == 0:
 				# Ensure stuff is initialized when required
 				for i in range(segmentCount):
 					frameData[frameid][i] = None, None
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
-			frameData[frameid][index] = getTime(timeOffset)
+			frameData[frameid][index] = (getTime(timeOffset), segment)
 			#print(f"writing segment to file: {segment}")
 			writeToFile(frameid, segment)
 			# Discard framedata after writing to file, lets us save memory

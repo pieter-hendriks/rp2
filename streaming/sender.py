@@ -120,9 +120,8 @@ def udpFn(ctrlPipe):
 		segmentcount = config.getFrameSegmentCount(framedata)
 		for total, index, segment in config.getFrameSegments(framedata):
 			# Sleep for as long as the segment has time allocated for transmission
-			currentTime = time.time()
 			time.sleep(0) # Sleep at least once, for reliability reasons
-			while currentTime - frameStart < (config.frametime * (index / segmentcount)):
+			while time.time() - frameStart < (config.frametime * (index / segmentcount)):
 				time.sleep(0) # Busy wait until we're ready
 				#time.sleep((config.frametime * (index/segmentcount)) - (currentTime - frameStart))
 			data = struct.pack('>III', frameIndex, total, index) + segment
