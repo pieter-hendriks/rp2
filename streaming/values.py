@@ -41,7 +41,7 @@ class Configuration:
 			self.getFrameSize = lambda _: len(self.__getFrameData(self.lastFrameIndex))
 			self.frameInputDirectory = 'frames'
 			self.frameFileNameTemplate = 'frame_#.jpg'
-		self.framerate = 16
+		self.framerate = 12
 		self.frametime = 1/self.framerate
 		# How large to make the frame segments
 		# Since we have an ethernet connection computer->router we are limited by ethernet MTU of 1500 bytes.
