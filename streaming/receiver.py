@@ -160,13 +160,17 @@ def udpFn(ctrlPipe: mp.Pipe):
 		#if imgPrevious != frameIndex:
 		for frameIndex in frameData:
 			filename = f"frame_{frameIndex}.jpg"
-			segmentCount = segmentCounts[frameIndex]
-			with open(config.getImgOutFilename(filename), 'wb') as f:
-				for segmentIndex in range(segmentCount):
-					if frameData[frameIndex][segmentIndex][1] is not None:
-						f.write(frameData[frameIndex][segmentIndex][1])
-					else:
-						f.write(b'0'*1280)
+			if frameIndex in segmentCounts:
+				segmentCount = segmentCounts[frameIndex]
+				with open(config.getImgOutFilename(filename), 'wb') as f:
+					for segmentIndex in range(segmentCount):
+						if frameData[frameIndex][segmentIndex][1] is not None:
+							f.write(frameData[frameIndex][segmentIndex][1])
+						else:
+							f.write(b'0'*1280)
+			else:
+				with open(config.getImgOutFilename(filename), 'w') as f:
+					f.write('No segments received for this frame.')
 	# def writeToFile(frameIndex, data):
 	# 	filename = f"frame_{frameIndex}.jpg"
 	# 	with open(config.getImgOutFilename(filename), 'ab') as f:
