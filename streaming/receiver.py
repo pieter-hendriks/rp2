@@ -247,7 +247,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			print("UDP RECEIVED EXIT")
 			doExit()
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
-			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])
+			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])[0]
 			writeOffset(timeOffset)
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
