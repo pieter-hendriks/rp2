@@ -15,8 +15,8 @@ class Configuration:
 		self.loopLength = 150
 
 		# IP CONFIG
-		self.sender = '127.0.2.1' # '192.168.3.2'
-		self.receiver = '127.0.2.2' # '192.168.4.2'
+		self.sender = '192.168.3.2'#'127.0.2.1'
+		self.receiver = '192.168.4.2'#'127.0.2.2'
 
 		if useLAN:
 			self.ntpserver = '10.1.69.39'
