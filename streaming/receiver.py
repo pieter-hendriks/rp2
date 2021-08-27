@@ -145,8 +145,6 @@ def udpFn(ctrlPipe: mp.Pipe):
 		print("RCV UDP doExit at", time.time())
 		global frameData
 		handleData()
-		writeSegmentArrivalTime(-1, -1, -1, -1)
-		writeToFile(frameData)
 		s.close()
 		try:
 			ctrlPipe.send(config.EXITSTRING)
@@ -191,6 +189,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# writeToFile(frameid, segment)
 			writeSegmentArrivalTime(frameid, index, receivedData[index][0], segmentSize)
 			# Record frame reception time
+		writeToFile(frameData)
 
 	def writeToFile(frameData):
 		#global imgBuffer, imgPrevious
@@ -271,6 +270,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
+				print("Had a pipe msg at", getTime(timeOffset))
 				handleMessages(ctrlPipe)
 			receivedData.append((getTime(timeOffset), s.recv(1300)))
 		except socket.timeout as e:
