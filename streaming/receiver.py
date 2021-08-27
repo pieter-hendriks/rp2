@@ -51,7 +51,8 @@ def ntpFn(ctrlPipe: mp.Pipe):
 			start = time.time()
 			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion,timeout=1.5)
 			ctrlPipe.send(config.NTPOFFSET + struct.pack('>d', response.offset))
-			time.sleep((1 / config.ntpFrequency) - (time.time() - start))
+			if ((1/config.ntpFrequency) - (time.time() - start) > 0):
+				time.sleep((1 / config.ntpFrequency) - (time.time() - start))
 		except (socket.timeout, ntplib.NTPException) as e:
 			print(f"e type: {type(e)}, args = '{e.args[0]}'")
 			if e.args[0] in [
@@ -165,7 +166,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		filename = f"frame_{frameIndex}.jpg"
 		with open(config.getImgOutFilename(filename), 'ab') as f:
 			f.write(data)
-		
+
 
 	def writeOffset(offset):
 		with open(config.getLogFileName("ntpoffsets"), 'a') as f:
@@ -206,7 +207,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 	s.connect((config.sender, config.udpport))
 	s.send(b"trigger") # Any content works, we just notify sender we're alive
 	# without this addition, sender would crash if started first
-	# Not a problem when doing things manually, a problem if they have to be started automatically 
+	# Not a problem when doing things manually, a problem if they have to be started automatically
 	# At as close a time together as possible
 	# Now sender must be started first, but functionality starts at the same time!
 
@@ -219,7 +220,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 				handleMessages(ctrlPipe)
 			# Try to receive, will throw socket.timeout if no content
 			content = s.recv(1500)
-			
+
 			#print("Receive maybe timeout")
 			if not content:
 				# TODO: Remove this if it doesn't turn out to be relevant
