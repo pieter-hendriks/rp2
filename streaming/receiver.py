@@ -135,10 +135,16 @@ receivedAny = False
 exitWhenDone = False
 frameData = {}
 segmentCounts = {}
+
+
+receivedData = []
+
 def udpFn(ctrlPipe: mp.Pipe):
 	global receivedAny, frameData
 	def doExit():
+		print("RCV UDP doExit at", time.time())
 		global frameData
+		handleData()
 		writeSegmentArrivalTime(-1, -1, -1, -1)
 		writeToFile(frameData)
 		s.close()
@@ -154,6 +160,34 @@ def udpFn(ctrlPipe: mp.Pipe):
 		# 	print(frameData[key])
 		# 	print(key)
 
+	def handleData():
+		global receivedData, segmentCounts, frameData
+		last_frameid = None
+		for index in range(len(receivedData)):
+			chunk = receivedData[index][1]
+			if len(chunk) < 16:
+				raise 1
+			frameid, segmentCount, index, segmentSize = struct.unpack('>IIII', chunk[:16])
+			if frameid != last_frameid:
+				print (f"Handling frame {frameid}")
+				last_frameid = frameid
+			segment = chunk[16:-4]
+			check = chunk[-4:]
+			assert check == b'\xff\xff\xff\xff'
+			segmentCounts[frameid] = segmentCount
+			if len(frameData[frameid]) == 0:
+				# Ensure stuff is initialized when required
+				for i in range(segmentCount):
+					frameData[frameid][i] = None, None
+			# For the segment, record arrival time (including ntp offset) + the stuff we received.
+			# This should allow us to reconstruct the frames we received at a later stage if so desired
+			frameData[frameid][index] = (receivedData[index][0], segment)
+			assert segment is not None
+			#print(f"writing segment to file: {segment}")
+			# writeToFile(frameid, segment)
+			writeSegmentArrivalTime(frameid, index, receivedData[index][0], segmentSize)
+			# Record frame reception time
+
 	def writeToFile(frameData):
 		#global imgBuffer, imgPrevious
 		#if imgPrevious != frameIndex:
@@ -166,12 +200,12 @@ def udpFn(ctrlPipe: mp.Pipe):
 						if frameData[frameIndex][segmentIndex][1] is not None:
 							f.write(frameData[frameIndex][segmentIndex][1])
 						else:
-							print(f"Frame {frameIndex} segment {segmentIndex} is None; writing zeroes.")
+							#print(f"Frame {frameIndex} segment {segmentIndex} is None; writing zeroes.")
 							if segmentIndex == 0:
-								print("Segment zero; writing FFD8+zeroes")
+								#print("Segment zero; writing FFD8+zeroes")
 								f.write(b'\xff\xd8' + b'\0' * 1278)
 							elif segmentIndex == segmentCount - 1:
-								print("Segment last; writing zeroes+FFD9")
+								#print("Segment last; writing zeroes+FFD9")
 								f.write(b'\0' * 1278 + b'\xff\xd9')
 							else:
 								f.write(b'\0'*1280)
@@ -234,70 +268,15 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# Check for control message
 			if ctrlPipe.poll():
 				handleMessages(ctrlPipe)
-			# Try to receive, will throw socket.timeout if no content
-			# 1280 frame size, 16 bytes prepend for stats, 4 check bytes to verify we're in the right place
-			content = s.recv(1300)
-			while len(content) < 16:
-				print("WARNING: Required an additional receive to get 16 bytes of data.")
-				content += s.recv(1296-len(content))
-			frameid, segmentCount, index, segmentSize = struct.unpack('>IIII', content[:16])
-			while len(content) < segmentSize + 16:
-				print("WARNING: Required an additional receive to get the full data.")
-				content += s.recv(segmentSize + 16 - len(content))
-			segment = content[16:-4]
-			check = content[-4:]
-			assert check == b'\xff\xff\xff\xff'
-			receivedAny = True
-			content = None
-			# frameid = struct.unpack('>I', content[:4])[0]
-			# segmentCount = struct.unpack('>I', content[4:8])[0]
-			# index = struct.unpack('>I', content[8:12])[0]
-			# segmentSize = struct.unpack('>I', content[12:])[0]
-			#frameid, segmentCount, index = struct.unpack('>III', myBytes)
-			segmentCounts[frameid] = segmentCount
-			if len(frameData[frameid]) == 0:
-				# Ensure stuff is initialized when required
-				for i in range(segmentCount):
-					frameData[frameid][i] = None, None
-			# For the segment, record arrival time (including ntp offset) + the stuff we received.
-			# This should allow us to reconstruct the frames we received at a later stage if so desired
-			frameData[frameid][index] = (getTime(timeOffset), segment)
-			assert segment is not None
-			#print(f"writing segment to file: {segment}")
-			# writeToFile(frameid, segment)
-			writeSegmentArrivalTime(frameid, index, getTime(timeOffset), segmentSize)
-			# Record frame reception time
-			ctrlPipe.send(config.FRAMERECEIVED + struct.pack('>d', getTime(timeOffset)))
-		except KeyboardInterrupt as e:
-			# Handle ctrlC
-			print ("keyboard int")
-			doExit()
+			receivedData.append((getTime(timeOffset), s.recv(1300)))
 		except socket.timeout as e:
-			# Handle socket time outs
-			print(f"Received socket.timeout: {e}")
-			ermsg = e.args[0]
-			if ermsg == 'timed out':
-				continue
-			else:
-				doExit()
-				raise e from None
-		except socket.error as e:
-			print ("socket error")
-			# Handle other errors, like no-data on socket recv when socket in non-block mode
-			if len(e.args) > 0:
-				if e.args[0] == 11:
-					if not receivedAny:
-						# Notify sender they're allowed to begin sending!
-						# This error occurs when sender isn't transmitting yet and we're waiting for data
-						s.send(b"trigger")
-					if exitWhenDone:
-						doExit()
-					print ("continue")
-					continue
-			else:
-				print(f"Socket error: {e}")
-				print("Exiting...")
-				doExit()
+			print("Assuming send is over...")
+			break
+		except Exception as e:
+			print("Unexpected error in receiving data fn")
+			raise e from None
+	doExit()
+
 if __name__ == "__main__":
 	try:
 		# Basic setup of variables

@@ -116,8 +116,8 @@ def udpFn(ctrlPipe):
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
 		frameStart = time.time()
-		# TODO: Remove the +85, is just used to ensure we're not sending black frames from start
-		framedata = config.getFrameData(frameIndex + 85)
+		# TO/DO: Remove the +85, is just used to ensure we're not sending black frames from start
+		framedata = config.getFrameData(frameIndex)
 		segmentcount = config.getFrameSegmentCount(framedata)
 		for total, index, segment in config.getFrameSegments(framedata):
 			# Sleep for as long as the segment has time allocated for transmission
@@ -136,6 +136,7 @@ def udpFn(ctrlPipe):
 	print("UDP function now sending exit string, loop is over.")
 	ctrlPipe.send(config.EXITSTRING)
 	print("UDP exiting...")
+	print("Sender finished at", time.time())
 
 
 if __name__ == "__main__":
