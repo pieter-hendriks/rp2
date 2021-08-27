@@ -174,6 +174,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if (lastSegment + 1 != index and last_frameid==frameid) and not (frameid != last_frameid + 1 and index == 0):
 				print("Segment missing from the received data list.")
 				print(f"Handled {last_frameid}:{lastSegment}, then jumped to {frameid}:{index}")
+			lastSegment = index
 			segment = chunk[16:-4]
 			check = chunk[-4:]
 			assert check == b'\xff\xff\xff\xff'
