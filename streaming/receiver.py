@@ -30,6 +30,8 @@ from helpers import handleReceiverInterprocessCommunication as handleInterproces
 
 
 def getTime(offset):
+	print(f"get time receiver: offset = {offset}")
+	print(f"my time = {time.time()}; returning {time.time() + offset}")
 	return time.time() + offset
 
 
@@ -142,7 +144,7 @@ receivedData = []
 def udpFn(ctrlPipe: mp.Pipe):
 	global receivedAny, frameData
 	def doExit():
-		print("RCV UDP doExit at", time.time())
+		print("RCV UDP doExit at", getTime(timeOffset))
 		global frameData
 		handleData()
 		s.close()
@@ -223,7 +225,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 	def writeOffset(offset):
 		with open(config.getLogFileName("ntpoffsets"), 'a') as f:
-			f.write(f"{(time.time(), offset)}")
+			f.write(f"{(time.time(), offset)} --> {getTime(offset)}")
 			f.write("\n")
 
 	def writeSegmentArrivalTime(frameid, segmentid, timestamp, size):
