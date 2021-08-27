@@ -22,8 +22,6 @@ wait $!
 echo "Local is finished. "
 echo "Sleeping for up to 10 seconds, allowing remote to handle frame writing."
 sleep 10
-echo "And sleeping 10 again,for safety"
-sleep 10
 echo "Killing remote!"
 sshpass -p "rover" ssh rover@10.1.75.85 "source killRobot.sh"
 wait
