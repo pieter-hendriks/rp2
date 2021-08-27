@@ -246,9 +246,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
 			frameData[frameid][index] = (getTime(timeOffset), segment)
 			#print(f"writing segment to file: {segment}")
-			writeToFile(frameid, segment)
-			# Discard framedata after writing to file, lets us save memory
-			frameData[frameid][index] = frameData[frameid][index]
+			# writeToFile(frameid, segment)
 			writeSegmentArrivalTime(frameid, index, getTime(timeOffset))
 			# Record frame reception time
 			ctrlPipe.send(config.FRAMERECEIVED + struct.pack('>d', getTime(timeOffset)))
