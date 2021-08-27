@@ -6,7 +6,7 @@ import string
 import random
 
 lan = False
-randomFrameData = True
+randomFrameData = False
 
 
 class Configuration:
@@ -78,6 +78,7 @@ class Configuration:
 	def getImgOutFilename(self, img):
 		return f"{self.__imgOutDir}/{img}"
 	def __getFrameData(self, frameIndex: int):
+		assert frameIndex >= 0
 		self.lastFrameIndex = frameIndex
 		with open(f"{self.frameInputDirectory}/{self.frameFileNameTemplate.replace('#', str(frameIndex))}", 'rb') as f:
 			# File size should fit within memory to avoid everything breaking

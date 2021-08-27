@@ -104,19 +104,25 @@ def udpFn(ctrlPipe):
 	s.bind((config.sender, config.udpport))
 	alive = False
 	while (not alive):
-		s.setblocking(True)
+		s.setblocking(False)
 		try:
+			time.sleep(1)
 			content = s.recv(100)
-			if content != 0:
+			if len(content) != 0:
 				alive = True
 		except Exception as e:
-			print("UDP sender waiting for poll message. If this error is not a timeout, please fix:\n" + e)
+			print("UDP sender waiting for poll message. If this error is not a timeout, please fix:\n", e.args[0])
 	s.connect((config.receiver, config.udpport))
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
 		frameStart = time.time()
 		framedata = config.getFrameData(frameIndex + 85)
+		segmentcount = config.getFrameSegmentCount(framedata)
 		for total, index, segment in config.getFrameSegments(framedata):
+			# Sleep for as long as the segment has time allocated for transmission
+			currentTime = time.time()
+			if currentTime - frameStart < (config.frametime * (index / segmentcount)):
+				time.sleep((config.frametime * (index/segmentcount)) - (currentTime - frameStart))
 			data = struct.pack('>III', frameIndex, total, index) + segment
 			ret = s.send(data)
 			writeSegmentSend(frameIndex, index, time.time())
@@ -127,6 +133,7 @@ def udpFn(ctrlPipe):
 		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
 		while (time.time() < frameStart + config.frametime):
 			time.sleep(0.001)
+	# At the end of the run, sleep for 10s to allow file writes on remote
 	print("UDP function now sending exit string, loop is over.")
 	ctrlPipe.send(config.EXITSTRING)
 	print("UDP exiting...")

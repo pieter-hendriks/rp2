@@ -49,7 +49,6 @@ def ntpFn(ctrlPipe: mp.Pipe):
 				else:
 					print(f"NTP received unhandled message: {rc}")
 			start = time.time()
-			print("NTP RQ GO")
 			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion,timeout=1.5)
 			ctrlPipe.send(config.NTPOFFSET + struct.pack('>d', response.offset))
 			time.sleep((1 / config.ntpFrequency) - (time.time() - start))
@@ -98,8 +97,6 @@ def tcpFn(ctrlPipe: mp.Pipe):
 					continue
 				else:
 					raise e from None
-				print(e.args)
-				pass
 
 	waitForConnection(s, ctrlPipe)
 	while True:
@@ -134,28 +131,47 @@ imgBuffer = bytearray()
 imgPrevious = 0
 segmentBuffer = []
 segmentPrevious = 0
+receivedAny = False
+exitWhenDone = False
+frameData = {}
 def udpFn(ctrlPipe: mp.Pipe):
-	def writeToFile(frameIndex, data):
-		#global imgBuffer, imgPrevious
-		#if imgPrevious != frameIndex:
-		filename = f"frame_{frameIndex}.jpg"
+	global receivedAny, frameData
+	def doExit():
+		global frameData
+		writeSegmentArrivalTime(-1, -1, -1)
+		s.close()
 		try:
-			with open(config.getImgOutFilename(filename), 'ab') as f:
-				f.write(data)
-		except e:
-			print(e)
-			raise e from None
-		#f.write(imgBuffer)
-		#		imgBuffer = bytearray()
-		#		imgPrevious = frameIndex
-		# imgBuffer += data
+			ctrlPipe.send(config.EXITSTRING)
+		except OSError as e:
+			# If it's closed, ignore and move on
+			pass
+		ctrlPipe.close()
+		exit(0)
+		# writeToFile(frameData)
+		# for key in frameData:
+		# 	print(frameData[key])
+		# 	print(key)
 
-
+	# def writeToFile(frameData):
+	# 	#global imgBuffer, imgPrevious
+	# 	#if imgPrevious != frameIndex:
+	# 	for frameIndex in frameData:
+	# 		filename = f"frame_{frameIndex}.jpg"
+	# 		with open(config.getImgOutFilename(filename), 'wb') as f:
+	# 			for segmentIndex in frameData[frameIndex]:
+	# 				if frameData[frameIndex][segmentIndex][1] is not None:
+	# 					f.write(frameData[frameIndex][segmentIndex][1])
+	def writeToFile(frameIndex, data):
+		filename = f"frame_{frameIndex}.jpg"
+		with open(config.getImgOutFilename(filename), 'ab') as f:
+			f.write(data)
+		
 
 	def writeOffset(offset):
 		with open(config.getLogFileName("ntpoffsets"), 'a') as f:
 			f.write(f"{(time.time(), offset)}")
 			f.write("\n")
+
 	def writeSegmentArrivalTime(frameid, segmentid, timestamp):
 		global segmentBuffer, segmentPrevious
 		if frameid != segmentPrevious:
@@ -168,13 +184,12 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 	timeOffset = 0
 	def handleMessages(pipe):
-		global timeOffset
+		global timeOffset, exitWhenDone
 		msg = ctrlPipe.recv()
 		# Handle exit
 		if msg[:len(config.EXITSTRING)] == config.EXITSTRING:
-			s.close()
-			ctrlPipe.close()
-			exit(0)
+			print("UDP RECEIVED EXIT")
+			doExit()
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
 			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])
 			writeOffset(timeOffset)
@@ -184,6 +199,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 			print(f"Unhandled msg in udp function, receiver: {msg}")
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	# Create 64 MiB buffer. Hopefully this'll fix the missing arrivals?
+	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 67108860)
 	s.setblocking(False)
 	s.bind((config.receiver, config.udpport))
 	s.connect((config.sender, config.udpport))
@@ -191,8 +208,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 	# without this addition, sender would crash if started first
 	# Not a problem when doing things manually, a problem if they have to be started automatically 
 	# At as close a time together as possible
+	# Now sender must be started first, but functionality starts at the same time!
 
-	frameData = {}
 	for i in range(config.loopLength):
 		frameData[i] = {}
 	while True:
@@ -200,14 +217,15 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# Check for control message
 			if ctrlPipe.poll():
 				handleMessages(ctrlPipe)
-
 			# Try to receive, will throw socket.timeout if no content
 			content = s.recv(1500)
+			
 			#print("Receive maybe timeout")
 			if not content:
 				# TODO: Remove this if it doesn't turn out to be relevant
 				print("No content. Mark for testing.")
 				continue
+			receivedAny = True
 			#print("Received content")
 			myBytes, segment = content[:struct.calcsize('>III')], content[struct.calcsize('>III'):]
 			frameid = struct.unpack('>I', myBytes[:4])[0]
@@ -220,11 +238,11 @@ def udpFn(ctrlPipe: mp.Pipe):
 					frameData[frameid][i] = None, None
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
-			frameData[frameid][index] = (getTime(timeOffset), segment)
+			frameData[frameid][index] = getTime(timeOffset)
 			#print(f"writing segment to file: {segment}")
-			writeToFile(frameid, frameData[frameid][index][1])
+			writeToFile(frameid, segment)
 			# Discard framedata after writing to file, lets us save memory
-			frameData[frameid][index] = (frameData[frameid][index][0], None)
+			frameData[frameid][index] = frameData[frameid][index]
 			writeSegmentArrivalTime(frameid, index, getTime(timeOffset))
 			# Record frame reception time
 			ctrlPipe.send(config.FRAMERECEIVED + struct.pack('>d', getTime(timeOffset)))
@@ -232,9 +250,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			s.setblocking(False)
 		except KeyboardInterrupt as e:
 			# Handle ctrlC
-			s.close()
-			ctrlPipe.send(config.EXITSTRING)
-			ctrlPipe.close()
+			doExit()
 		except socket.timeout as e:
 			# Handle socket time outs
 			print(f"Received socket.timeout: {e}")
@@ -242,19 +258,23 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if ermsg == 'timed out':
 				continue
 			else:
+				doExit()
 				raise e from None
 		except socket.error as e:
 			# Handle other errors, like no-data on socket recv when socket in non-block mode
 			if len(e.args) > 0:
 				if e.args[0] == 11:
+					if not receivedAny:
+						# Notify sender they're allowed to begin sending!
+						# This error occurs when sender isn't transmitting yet and we're waiting for data
+						s.send(b"trigger")
+					if exitWhenDone:
+						doExit()
 					continue
 			else:
 				print(f"Socket error: {e}")
 				print("Exiting...")
-				s.close()
-				ctrlPipe.send(config.EXITSTRING)
-				ctrlPipe.close()
-
+				doExit()
 if __name__ == "__main__":
 	try:
 		# Basic setup of variables
