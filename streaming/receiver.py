@@ -162,7 +162,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 	def handleData():
 		global receivedData, segmentCounts, frameData
-		last_frameid = None
+		last_frameid, lastSegment = None, -1
 		for index in range(len(receivedData)):
 			chunk = receivedData[index][1]
 			if len(chunk) < 16:
@@ -171,6 +171,9 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if frameid != last_frameid:
 				print (f"Handling frame {frameid}")
 				last_frameid = frameid
+			if (lastSegment + 1 != index and last_frameid==frameid) and not (frameid != last_frameid + 1 and index == 0):
+				print("Segment missing from the received data list.")
+				print(f"Handled {last_frameid}:{lastSegment}, then jumped to {frameid}:{index}")
 			segment = chunk[16:-4]
 			check = chunk[-4:]
 			assert check == b'\xff\xff\xff\xff'
