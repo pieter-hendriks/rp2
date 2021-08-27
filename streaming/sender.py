@@ -107,7 +107,7 @@ def udpFn(ctrlPipe):
 		s.setblocking(False)
 		try:
 			time.sleep(1)
-			content = s.recv(100)
+			content = s.recv(1)
 			if len(content) != 0:
 				alive = True
 		except Exception as e:
@@ -125,7 +125,7 @@ def udpFn(ctrlPipe):
 			while time.time() - frameStart < (config.frametime * (index / segmentcount)):
 				time.sleep(0) # Busy wait until we're ready
 				#time.sleep((config.frametime * (index/segmentcount)) - (currentTime - frameStart))
-			data = struct.pack('>III', frameIndex, total, index) + segment
+			data = struct.pack('>IIII', frameIndex, total, index, len(segment) + 4) + segment + b'\xFF\xFF\xFF\xFF'
 			s.sendall(data)
 			writeSegmentSend(frameIndex, index, time.time())
 		frameEnd = time.time()

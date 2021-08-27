@@ -12,11 +12,11 @@ randomFrameData = False
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		# Amount of frames to send
-		self.loopLength = 100
+		self.loopLength = 5
 
 		# IP CONFIG
-		self.sender = '192.168.3.2'
-		self.receiver = '192.168.4.2'
+		self.sender = '192.168.3.2'#'127.0.2.1'
+		self.receiver = '192.168.4.2'#'127.0.2.2'
 
 		if useLAN:
 			self.ntpserver = '10.1.69.39'
@@ -41,7 +41,7 @@ class Configuration:
 			self.getFrameSize = lambda _: len(self.__getFrameData(self.lastFrameIndex))
 			self.frameInputDirectory = 'frames'
 			self.frameFileNameTemplate = 'frame_#.jpg'
-		self.framerate = 3
+		self.framerate = 12
 		self.frametime = 1/self.framerate
 		# How large to make the frame segments
 		# Since we have an ethernet connection computer->router we are limited by ethernet MTU of 1500 bytes.

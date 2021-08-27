@@ -100,12 +100,12 @@ def tcpFn(ctrlPipe: mp.Pipe):
 					raise e from None
 
 	waitForConnection(s, ctrlPipe)
+	s.settimeout(0.2)
 	while True:
 		# Handle the control messages from main()
 		if ctrlPipe.poll():
 			handleMessages(ctrlPipe)
 		# Handle messages over the TCP connection
-		s.setblocking(False)
 		try:
 			recv = s.recv(4096)
 			if (len(recv) > 0):
@@ -123,7 +123,6 @@ def tcpFn(ctrlPipe: mp.Pipe):
 				continue
 			else:
 				raise e from None
-		s.setblocking(True)
 		# # If neither pipe nor socket has messages, yield thread
 		# time.sleep(0)
 
@@ -212,36 +211,41 @@ def udpFn(ctrlPipe: mp.Pipe):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	# Create 64 MiB buffer. Hopefully this'll fix the missing arrivals?
 	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 67108860)
-	s.setblocking(False)
 	s.bind((config.receiver, config.udpport))
 	s.connect((config.sender, config.udpport))
-	s.send(b"trigger") # Any content works, we just notify sender we're alive
+	s.send(b"0") # Any content works, we just notify sender we're alive
 	# without this addition, sender would crash if started first
 	# Not a problem when doing things manually, a problem if they have to be started automatically
 	# At as close a time together as possible
 	# Now sender must be started first, but functionality starts at the same time!
-
+	global frameData
 	for i in range(config.loopLength):
 		frameData[i] = {}
+	s.settimeout(1.0) # 1 second timeout
 	while True:
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
 				handleMessages(ctrlPipe)
 			# Try to receive, will throw socket.timeout if no content
-			content = s.recv(1500)
-
-			#print("Receive maybe timeout")
-			if not content:
-				# TODO: Remove this if it doesn't turn out to be relevant
-				print("No content. Mark for testing.")
-				continue
+			# 1280 frame size, 16 bytes prepend for stats, 4 check bytes to verify we're in the right place
+			content = s.recv(1300)
+			while len(content) < 16:
+				print("WARNING: Required an additional receive to get 16 bytes of data.")
+				content += s.recv(1296-len(content))
+			frameid, segmentCount, index, segmentSize = struct.unpack('>IIII', content[:16])
+			while len(content) < segmentSize + 16:
+				print("WARNING: Required an additional receive to get the full data.")
+				content += s.recv(segmentSize + 16 - len(content))
+			segment = content[16:-4]
+			check = content[-4:]
+			assert check == b'\xff\xff\xff\xff'
 			receivedAny = True
-			#print("Received content")
-			myBytes, segment = content[:struct.calcsize('>III')], content[struct.calcsize('>III'):]
-			frameid = struct.unpack('>I', myBytes[:4])[0]
-			segmentCount = struct.unpack('>I', myBytes[4:8])[0]
-			index = struct.unpack('>I', myBytes[8:12])[0]
+			content = None
+			# frameid = struct.unpack('>I', content[:4])[0]
+			# segmentCount = struct.unpack('>I', content[4:8])[0]
+			# index = struct.unpack('>I', content[8:12])[0]
+			# segmentSize = struct.unpack('>I', content[12:])[0]
 			#frameid, segmentCount, index = struct.unpack('>III', myBytes)
 			segmentCounts[frameid] = segmentCount
 			if len(frameData[frameid]) == 0:
@@ -251,15 +255,15 @@ def udpFn(ctrlPipe: mp.Pipe):
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
 			frameData[frameid][index] = (getTime(timeOffset), segment)
+			assert segment is not None
 			#print(f"writing segment to file: {segment}")
 			# writeToFile(frameid, segment)
-			writeSegmentArrivalTime(frameid, index, getTime(timeOffset), len(segment))
+			writeSegmentArrivalTime(frameid, index, getTime(timeOffset), segmentSize)
 			# Record frame reception time
 			ctrlPipe.send(config.FRAMERECEIVED + struct.pack('>d', getTime(timeOffset)))
-			# Then go back to non-blocking
-			s.setblocking(False)
 		except KeyboardInterrupt as e:
 			# Handle ctrlC
+			print ("keyboard int")
 			doExit()
 		except socket.timeout as e:
 			# Handle socket time outs
@@ -271,6 +275,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 				doExit()
 				raise e from None
 		except socket.error as e:
+			print ("socket error")
 			# Handle other errors, like no-data on socket recv when socket in non-block mode
 			if len(e.args) > 0:
 				if e.args[0] == 11:
@@ -280,6 +285,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 						s.send(b"trigger")
 					if exitWhenDone:
 						doExit()
+					print ("continue")
 					continue
 			else:
 				print(f"Socket error: {e}")
