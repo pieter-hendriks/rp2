@@ -140,7 +140,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 	global receivedAny, frameData
 	def doExit():
 		global frameData
-		writeSegmentArrivalTime(-1, -1, -1)
+		writeSegmentArrivalTime(-1, -1, -1, -1)
 		writeToFile(frameData)
 		s.close()
 		try:
