@@ -167,7 +167,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 						if frameData[frameIndex][segmentIndex][1] is not None:
 							f.write(frameData[frameIndex][segmentIndex][1])
 						else:
-							f.write(b'0'*1280)
+							print(f"Frame {frameIndex} segment {segmentIndex} is None; writing zeroes.")
+							f.write(b'\0'*1280)
 			else:
 				with open(config.getImgOutFilename(filename), 'w') as f:
 					f.write('No segments received for this frame.')
