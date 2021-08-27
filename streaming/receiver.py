@@ -167,7 +167,14 @@ def udpFn(ctrlPipe: mp.Pipe):
 							f.write(frameData[frameIndex][segmentIndex][1])
 						else:
 							print(f"Frame {frameIndex} segment {segmentIndex} is None; writing zeroes.")
-							f.write(b'\0'*1280)
+							if segmentIndex == 0:
+								print("Segment zero; writing FFD8+zeroes")
+								f.write(b'\xff\xd8' + b'\0' * 1278)
+							elif segmentIndex == segmentCount - 1:
+								print("Segment last; writing zeroes+FFD9")
+								f.write(b'\0' * 1278 + b'\xff\xd9')
+							else:
+								f.write(b'\0'*1280)
 			else:
 				with open(config.getImgOutFilename(filename), 'w') as f:
 					f.write('No segments received for this frame.')
