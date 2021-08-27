@@ -135,6 +135,7 @@ segmentPrevious = 0
 receivedAny = False
 exitWhenDone = False
 frameData = {}
+segmentCounts = {}
 def udpFn(ctrlPipe: mp.Pipe):
 	global receivedAny, frameData
 	def doExit():
@@ -159,7 +160,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		#if imgPrevious != frameIndex:
 		for frameIndex in frameData:
 			filename = f"frame_{frameIndex}.jpg"
-			segmentCount = frameData[f"frame_{frameIndex}_segments"]
+			segmentCount = segmentCounts[frameIndex]
 			with open(config.getImgOutFilename(filename), 'wb') as f:
 				for segmentIndex in range(segmentCount):
 					if frameData[frameIndex][segmentIndex][1] is not None:
@@ -177,14 +178,14 @@ def udpFn(ctrlPipe: mp.Pipe):
 			f.write(f"{(time.time(), offset)}")
 			f.write("\n")
 
-	def writeSegmentArrivalTime(frameid, segmentid, timestamp):
+	def writeSegmentArrivalTime(frameid, segmentid, timestamp, size):
 		global segmentBuffer, segmentPrevious
 		if frameid != segmentPrevious:
 			with open(config.getLogFileName('segment_arrivals'), 'a') as f:
 				f.write(''.join(segmentBuffer))
 			segmentBuffer = []
 			segmentPrevious = frameid
-		segmentBuffer.append(f"({frameid}, {segmentid}, {timestamp})\n")
+		segmentBuffer.append(f"({frameid}, {segmentid}, {timestamp}, {size})\n")
 
 
 	timeOffset = 0
@@ -237,7 +238,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			segmentCount = struct.unpack('>I', myBytes[4:8])[0]
 			index = struct.unpack('>I', myBytes[8:12])[0]
 			#frameid, segmentCount, index = struct.unpack('>III', myBytes)
-			frameData[f"frame_{frameid}_segments"] = segmentCount
+			segmentCounts[frameid] = segmentCount
 			if len(frameData[frameid]) == 0:
 				# Ensure stuff is initialized when required
 				for i in range(segmentCount):
@@ -247,7 +248,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			frameData[frameid][index] = (getTime(timeOffset), segment)
 			#print(f"writing segment to file: {segment}")
 			# writeToFile(frameid, segment)
-			writeSegmentArrivalTime(frameid, index, getTime(timeOffset))
+			writeSegmentArrivalTime(frameid, index, getTime(timeOffset), len(segment))
 			# Record frame reception time
 			ctrlPipe.send(config.FRAMERECEIVED + struct.pack('>d', getTime(timeOffset)))
 			# Then go back to non-blocking

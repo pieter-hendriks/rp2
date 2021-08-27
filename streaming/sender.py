@@ -116,6 +116,7 @@ def udpFn(ctrlPipe):
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
 		frameStart = time.time()
+		# TODO: Remove the +85, is just used to ensure we're not sending black frames from start
 		framedata = config.getFrameData(frameIndex + 85)
 		segmentcount = config.getFrameSegmentCount(framedata)
 		for total, index, segment in config.getFrameSegments(framedata):
@@ -125,11 +126,8 @@ def udpFn(ctrlPipe):
 				time.sleep(0) # Busy wait until we're ready
 				#time.sleep((config.frametime * (index/segmentcount)) - (currentTime - frameStart))
 			data = struct.pack('>III', frameIndex, total, index) + segment
-			ret = s.send(data)
+			s.sendall(data)
 			writeSegmentSend(frameIndex, index, time.time())
-			#ret = s.send(i.to_bytes(4, byteorder='big') + segmentIndex.to_bytes(4, byteorder='big') + segment)
-			if ret != struct.calcsize('>III') + len(segment):
-				print("Unexpected error in frame send!")
 		frameEnd = time.time()
 		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
 		while (time.time() < frameStart + config.frametime):
