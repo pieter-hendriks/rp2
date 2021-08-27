@@ -8,6 +8,7 @@ import random
 lan = False
 randomFrameData = False
 
+runlocal = True
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
@@ -15,8 +16,12 @@ class Configuration:
 		self.loopLength = 150
 
 		# IP CONFIG
-		self.sender = '192.168.3.2'#'127.0.2.1'
-		self.receiver = '192.168.4.2'#'127.0.2.2'
+		if runlocal:
+			self.sender = '127.0.2.1'
+			self.receiver = '127.0.2.2'
+		else:
+			self.sender = '192.168.3.2'#'127.0.2.1'
+			self.receiver = '192.168.4.2'#'127.0.2.2'
 
 		if useLAN:
 			self.ntpserver = '10.1.69.39'

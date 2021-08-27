@@ -30,8 +30,8 @@ from helpers import handleReceiverInterprocessCommunication as handleInterproces
 
 
 def getTime(offset):
-	print(f"get time receiver: offset = {offset}")
-	print(f"my time = {time.time()}; returning {time.time() + offset}")
+	#print(f"get time receiver: offset = {offset}")
+	#print(f"my time = {time.time()}; returning {time.time() + offset}")
 	return time.time() + offset
 
 
@@ -52,6 +52,8 @@ def ntpFn(ctrlPipe: mp.Pipe):
 					print(f"NTP received unhandled message: {rc}")
 			start = time.time()
 			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion,timeout=1.5)
+			print("NTP OFFSET OBTAINED:", response.offset)
+			print(response)
 			ctrlPipe.send(config.NTPOFFSET + struct.pack('>d', response.offset))
 			if ((1/config.ntpFrequency) - (time.time() - start) > 0):
 				time.sleep((1 / config.ntpFrequency) - (time.time() - start))
@@ -136,6 +138,7 @@ segmentPrevious = 0
 receivedAny = False
 exitWhenDone = False
 frameData = {}
+timeOffset = 0
 segmentCounts = {}
 
 
@@ -238,7 +241,6 @@ def udpFn(ctrlPipe: mp.Pipe):
 		segmentBuffer.append(f"({frameid}, {segmentid}, {timestamp}, {size})\n")
 
 
-	timeOffset = 0
 	def handleMessages(pipe):
 		global timeOffset, exitWhenDone
 		msg = ctrlPipe.recv()
@@ -248,6 +250,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 			doExit()
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
 			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])[0]
+			if (timeOffset == 0):
+				raise RuntimeError("YO WTF")
 			writeOffset(timeOffset)
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
