@@ -88,7 +88,7 @@ def writeSegmentSend(frameIndex, segmentIndex, timestamp):
 		previous = frameIndex
 		with open(config.getLogFileName('segment_send'), 'a') as f:
 			f.write(''.join(segmentStore))
-
+			segmentStore = []
 def udpFn(ctrlPipe):
 	def handleControlMessage():
 		if ctrlPipe.poll():
@@ -113,6 +113,7 @@ def udpFn(ctrlPipe):
 		except Exception as e:
 			print("UDP sender waiting for poll message. If this error is not a timeout, please fix:\n", e.args[0])
 	s.connect((config.receiver, config.udpport))
+	any = False
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
 		frameStart = time.time()
@@ -126,8 +127,13 @@ def udpFn(ctrlPipe):
 				time.sleep(0) # Busy wait until we're ready
 				#time.sleep((config.frametime * (index/segmentcount)) - (currentTime - frameStart))
 			data = struct.pack('>IIII', frameIndex, total, index, len(segment) + 4) + segment + b'\xFF\xFF\xFF\xFF'
-			s.sendall(data)
 			writeSegmentSend(frameIndex, index, time.time())
+			try:
+				s.send(data)
+			except ConnectionRefusedError as e:
+				ctrlPipe.send(config.EXITSTRING)
+				print("Connection refused, exiting.")
+				exit(0)
 		frameEnd = time.time()
 		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
 		while (time.time() < frameStart + config.frametime):

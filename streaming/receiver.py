@@ -28,10 +28,7 @@ from helpers import handleReceiverInterprocessCommunication as handleInterproces
 #		print(response.offset)
 #		time.sleep(0.3)
 
-
 def getTime(offset):
-	#print(f"get time receiver: offset = {offset}")
-	#print(f"my time = {time.time()}; returning {time.time() + offset}")
 	return time.time() + offset
 
 
@@ -52,8 +49,6 @@ def ntpFn(ctrlPipe: mp.Pipe):
 					print(f"NTP received unhandled message: {rc}")
 			start = time.time()
 			response = client.request(config.ntpserver, port=config.ntpport, version=config.ntpversion,timeout=1.5)
-			print("NTP OFFSET OBTAINED:", response.offset)
-			print(response)
 			ctrlPipe.send(config.NTPOFFSET + struct.pack('>d', response.offset))
 			if ((1/config.ntpFrequency) - (time.time() - start) > 0):
 				time.sleep((1 / config.ntpFrequency) - (time.time() - start))
@@ -166,20 +161,21 @@ def udpFn(ctrlPipe: mp.Pipe):
 	def handleData():
 		global receivedData, segmentCounts, frameData
 		last_frameid, lastSegment = None, -1
-		for index in range(len(receivedData)):
-			chunk = receivedData[index][1]
+		for rdIndex in range(len(receivedData)):
+			chunk = receivedData[rdIndex][0]
 			if len(chunk) < 16:
 				raise 1
-			frameid, segmentCount, index, segmentSize = struct.unpack('>IIII', chunk[:16])
+			frameid, segmentCount, segmentIndex, segmentSize = struct.unpack('>IIII', chunk[:16])
 			if frameid != last_frameid:
 				print (f"Handling frame {frameid}")
 				last_frameid = frameid
-			if (lastSegment + 1 != index and last_frameid==frameid) and not (frameid != last_frameid + 1 and index == 0):
+			if (lastSegment + 1 != segmentIndex and last_frameid==frameid) and not (frameid != last_frameid + 1 and segmentIndex == 0):
 				print("Segment missing from the received data list.")
-				print(f"Handled {last_frameid}:{lastSegment}, then jumped to {frameid}:{index}")
-			lastSegment = index
+				print(f"Handled {last_frameid}:{lastSegment}, then jumped to {frameid}:{segmentIndex}")
+			lastSegment = segmentIndex
 			segment = chunk[16:-4]
 			check = chunk[-4:]
+			assert len(segment) + len(check) == segmentSize
 			assert check == b'\xff\xff\xff\xff'
 			segmentCounts[frameid] = segmentCount
 			if len(frameData[frameid]) == 0:
@@ -188,11 +184,11 @@ def udpFn(ctrlPipe: mp.Pipe):
 					frameData[frameid][i] = None, None
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
-			frameData[frameid][index] = (receivedData[index][0], segment)
+			frameData[frameid][segmentIndex] = (receivedData[rdIndex][1], segment)
 			assert segment is not None
 			#print(f"writing segment to file: {segment}")
 			# writeToFile(frameid, segment)
-			writeSegmentArrivalTime(frameid, index, receivedData[index][0], segmentSize)
+			writeSegmentArrivalTime(frameid, segmentIndex, receivedData[rdIndex][1], segmentSize)
 			# Record frame reception time
 		writeToFile(frameData)
 
@@ -250,8 +246,6 @@ def udpFn(ctrlPipe: mp.Pipe):
 			doExit()
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
 			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])[0]
-			if (timeOffset == 0):
-				raise RuntimeError("YO WTF")
 			writeOffset(timeOffset)
 			# Set the timeoffset, which will be used whenever we grab the current time.
 			# Hope this will make it so reporting is accurate enough.
@@ -260,7 +254,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	# Create 64 MiB buffer. Hopefully this'll fix the missing arrivals?
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 67108860)
+	# s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 67108860)
 	s.bind((config.receiver, config.udpport))
 	s.connect((config.sender, config.udpport))
 	s.send(b"0") # Any content works, we just notify sender we're alive
@@ -276,9 +270,10 @@ def udpFn(ctrlPipe: mp.Pipe):
 		try:
 			# Check for control message
 			if ctrlPipe.poll():
-				print("Had a pipe msg at", getTime(timeOffset))
 				handleMessages(ctrlPipe)
-			receivedData.append((getTime(timeOffset), s.recv(1300)))
+			# Put content first so we record time after recv
+			# Else our time stamp is wrong
+			receivedData.append((s.recv(1300), getTime(timeOffset)))
 		except socket.timeout as e:
 			print("Assuming send is over...")
 			break
