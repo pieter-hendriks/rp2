@@ -118,6 +118,9 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		except socket.timeout as e:
 			if e.args[0] != 'timed out':
 				print(f"Encountered unexpected error in tcp fn: {e}")
+				raise e from None
+			else:
+				continue
 		except BlockingIOError as e:
 			if e.args == (11, 'Resource temporarily unavailable'):
 				continue
@@ -266,7 +269,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 	global frameData
 	for i in range(config.loopLength):
 		frameData[i] = {}
-	s.settimeout(5)
+	s.settimeout(2.5)
 	while True:
 		try:
 			# Check for control message
@@ -282,7 +285,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 			print("Unexpected error in receiving data fn")
 			raise e from None
 	# Subtract an extra five because the last socket timeout is counted if we don't
-	print(f"Receiver receiving everything took {time.time() - recvStart - 5}")
+	print(f"Receiver receiving everything took {time.time() - recvStart - 2.5}")
 	doExit()
 
 if __name__ == "__main__":
