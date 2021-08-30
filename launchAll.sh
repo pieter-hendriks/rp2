@@ -1,6 +1,9 @@
+ROBOT=192.168.85.159
+
+
 launchRobotStuff() {
   echo "Issuing remote command!"
-  sshpass -p "rover" ssh rover@10.1.75.85 "source startRobot.sh"
+  sshpass -p "rover" ssh rover@${ROBOT} "./startRobot.sh"
   echo "Remote ending..."
 }
 
@@ -23,5 +26,5 @@ echo "Local is finished. "
 echo "Sleeping for up to 10 seconds, allowing remote to handle frame writing."
 sleep 10
 echo "Killing remote!"
-sshpass -p "rover" ssh rover@10.1.75.85 "source killRobot.sh"
+sshpass -p "rover" ssh rover@${ROBOT} "source killRobot.sh"
 wait
