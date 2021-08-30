@@ -75,6 +75,7 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		if msg[:len(config.EXITSTRING)] == config.EXITSTRING:
 			# Main function sent us this - so we don't have to do any signaling, we can just exit.
 			print("TCP received exit, now exiting...")
+			s.close()
 			exit(0)
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
 			# Do nothing here, timestamps are used in UDP fn
