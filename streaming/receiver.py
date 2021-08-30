@@ -253,11 +253,11 @@ def udpFn(ctrlPipe: mp.Pipe):
 			print(f"Unhandled msg in udp function, receiver: {msg}")
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	# Create 64 MiB buffer. Hopefully this'll fix the missing arrivals?
-	# s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 67108860)
+
 	s.bind((config.receiver, config.udpport))
 	s.connect((config.sender, config.udpport))
 	s.send(b"0") # Any content works, we just notify sender we're alive
+	recvStart = time.time()
 	# without this addition, sender would crash if started first
 	# Not a problem when doing things manually, a problem if they have to be started automatically
 	# At as close a time together as possible
@@ -280,6 +280,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 		except Exception as e:
 			print("Unexpected error in receiving data fn")
 			raise e from None
+	# Subtract an extra five because the last socket timeout is counted if we don't
+	print(f"Receiver receiving everything took {time.time() - recvStart - 5}")
 	doExit()
 
 if __name__ == "__main__":

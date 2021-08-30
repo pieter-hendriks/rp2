@@ -13,7 +13,7 @@ runlocal = True
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		# Amount of frames to send
-		self.loopLength = 150
+		self.loopLength = 250
 
 		# IP CONFIG
 		if runlocal:

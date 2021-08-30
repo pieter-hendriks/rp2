@@ -89,6 +89,8 @@ def writeSegmentSend(frameIndex, segmentIndex, timestamp):
 		with open(config.getLogFileName('segment_send'), 'a') as f:
 			f.write(''.join(segmentStore))
 			segmentStore = []
+
+
 def udpFn(ctrlPipe):
 	def handleControlMessage():
 		if ctrlPipe.poll():
@@ -112,6 +114,8 @@ def udpFn(ctrlPipe):
 				alive = True
 		except Exception as e:
 			print("UDP sender waiting for poll message. If this error is not a timeout, please fix:\n", e.args[0])
+
+	senderStart = time.time()
 	s.connect((config.receiver, config.udpport))
 	any = False
 	for frameIndex in range(config.loopLength):
@@ -139,6 +143,8 @@ def udpFn(ctrlPipe):
 		while (time.time() < frameStart + config.frametime):
 			time.sleep(0.001)
 	# At the end of the run, sleep for 10s to allow file writes on remote
+	print(f"Sender sending all frames took {time.time() - senderStart}")
+	print(f"Sender finished at {time.time()}")
 	print("UDP function now sending exit string, loop is over.")
 	ctrlPipe.send(config.EXITSTRING)
 	print("UDP exiting...")
