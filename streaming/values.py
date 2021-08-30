@@ -12,8 +12,13 @@ runlocal = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
+		self.experimentTime = 15
+		# Frame rate & time
+		self.framerate = 12
+		self.frametime = 1/self.framerate
 		# Amount of frames to send
-		self.loopLength = 60
+		self.loopLength = self.experimentTime * self.framerate
+		assert self.loopLength < 4922 # 0 until 4920 = 4921 frames
 
 		# IP CONFIG
 		if runlocal:
@@ -46,8 +51,6 @@ class Configuration:
 			self.getFrameSize = lambda _: len(self.__getFrameData(self.lastFrameIndex))
 			self.frameInputDirectory = 'frames'
 			self.frameFileNameTemplate = 'frame_#.jpg'
-		self.framerate = 4
-		self.frametime = 1/self.framerate
 		# How large to make the frame segments
 		# Since we have an ethernet connection computer->router we are limited by ethernet MTU of 1500 bytes.
 		# We set this value to be comfortably below that limit to be safe.

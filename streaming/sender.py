@@ -19,6 +19,7 @@ def tcpFn(ctrlPipe: mp.Pipe):
 		print("Sending TCP exit message over socket")
 		try:
 			socket.sendall(config.EXITSTRING)
+			socket.close()
 		except Exception as e:
 			if e.args == (32, "Broken pipe"):
 				print("Received broken pipeerror as part of TCP exit communication.")
@@ -121,7 +122,6 @@ def udpFn(ctrlPipe):
 	for frameIndex in range(config.loopLength):
 		handleControlMessage()
 		frameStart = time.time()
-		# TO/DO: Remove the +85, is just used to ensure we're not sending black frames from start
 		framedata = config.getFrameData(frameIndex)
 		segmentcount = config.getFrameSegmentCount(framedata)
 		for total, index, segment in config.getFrameSegments(framedata):
