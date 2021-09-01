@@ -203,6 +203,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 		writeToFile(frameData)
 
 	def writeToFile(frameData):
+		return
 		#global imgBuffer, imgPrevious
 		#if imgPrevious != frameIndex:
 		for frameIndex in frameData:
