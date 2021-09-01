@@ -14,7 +14,7 @@ class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		self.experimentTime = 20
 		# Frame rate & time
-		self.framerate = 20
+		self.framerate = 60
 		self.frametime = 1/self.framerate
 		# Amount of frames to send
 		self.loopLength = self.experimentTime * self.framerate

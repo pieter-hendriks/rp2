@@ -186,6 +186,10 @@ def udpFn(ctrlPipe: mp.Pipe):
 				# Ensure stuff is initialized when required
 				for i in range(segmentCount):
 					frameData[frameid][i] = None, None
+			# Check if we're re-receiving a segment
+			if frameData[frameid][segmentIndex] != (None, None):
+				print(f"Received a duplicate segment: {frameid}:{segmentIndex}\nIgnoring this one...")
+				continue
 			# For the segment, record arrival time (including ntp offset) + the stuff we received.
 			# This should allow us to reconstruct the frames we received at a later stage if so desired
 			frameData[frameid][segmentIndex] = (receivedData[rdIndex][1], segment)
