@@ -212,6 +212,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 				if all([frameData[frameIndex][i][1] is not None for i in range(segmentCount)]):
 					# For all frames that arrived completely correctly, don't bother writing to file
 					# Since they are exactly the same anyway
+					print(f"Not writing frame {frameIndex} because it arrived fully.")
 					continue
 				with open(config.getImgOutFilename(filename), 'wb') as f:
 					for segmentIndex in range(segmentCount):
