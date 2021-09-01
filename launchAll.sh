@@ -1,5 +1,4 @@
-ROBOT=192.168.85.159
-
+ROBOT=192.168.4.2
 
 launchRobotStuff() {
   echo "Issuing remote command!"
