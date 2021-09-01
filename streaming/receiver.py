@@ -172,12 +172,12 @@ def udpFn(ctrlPipe: mp.Pipe):
 			if len(chunk) < 16:
 				raise 1
 			frameid, segmentCount, segmentIndex, segmentSize = struct.unpack('>IIII', chunk[:16])
-			if frameid != last_frameid:
-				print (f"Handling frame {frameid}")
-				last_frameid = frameid
 			if (lastSegment + 1 != segmentIndex and last_frameid==frameid) and not (frameid != last_frameid + 1 and segmentIndex == 0):
 				print("Segment missing from the received data list.")
 				print(f"Handled {last_frameid}:{lastSegment}, then jumped to {frameid}:{segmentIndex}")
+			if frameid != last_frameid:
+				print (f"Handling frame {frameid}")
+				last_frameid = frameid
 			lastSegment = segmentIndex
 			segment = chunk[16:-4]
 			check = chunk[-4:]

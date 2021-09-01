@@ -141,8 +141,7 @@ def udpFn(ctrlPipe):
 		frameEnd = time.time()
 		print(f"sending frame {frameIndex} took {frameEnd - frameStart:.3f} seconds (1/60 = {1/60:.3f})")
 		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
-		while (time.time() < frameStart + config.frametime - 0.002): # allow some time to read the file
-			print("WE SLEEPIN")
+		while (time.time() < frameStart + config.frametime - 0.001): # allow some time to read the file
 			time.sleep(0)
 	# At the end of the run, sleep for 10s to allow file writes on remote
 	print(f"Sender sending all frames took {time.time() - senderStart}")
