@@ -12,7 +12,7 @@ runlocal = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
-		self.experimentTime = 30
+		self.experimentTime = 5
 		# Frame rate & time
 		self.framerate = 10
 		self.frametime = 1/self.framerate
