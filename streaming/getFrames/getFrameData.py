@@ -3,7 +3,7 @@ import os
 import time
 
 output_directory = 'frames'
-input_file = 'video.mp4'
+input_file = 'Drive.mp4'
 
 try:
 	os.mkdir(output_directory)

@@ -7,14 +7,14 @@ import random
 
 lan = False
 randomFrameData = False
-
+use4k = False
 runlocal = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
-		self.experimentTime = 10
+		self.experimentTime = 20
 		# Frame rate & time
-		self.framerate = 4
+		self.framerate = 20
 		self.frametime = 1/self.framerate
 		# Amount of frames to send
 		self.loopLength = self.experimentTime * self.framerate
@@ -49,7 +49,7 @@ class Configuration:
 		else:
 			self.getFrameData = self.__getFrameData
 			self.getFrameSize = lambda _: len(self.__getFrameData(self.lastFrameIndex))
-			self.frameInputDirectory = 'frames'
+			self.frameInputDirectory = 'frames/4k/' if use4k else 'frames/1440p/'
 			self.frameFileNameTemplate = 'frame_#.jpg'
 		# How large to make the frame segments
 		# Since we have an ethernet connection computer->router we are limited by ethernet MTU of 1500 bytes.
