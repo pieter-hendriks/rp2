@@ -125,10 +125,12 @@ def udpFn(ctrlPipe):
 		handleControlMessage()
 		frameStart = time.time()
 		framedata = config.getFrameData(frameIndex)
+		segmentcount = config.getFrameSegmentCount(framedata)
 		for total, index, segment in config.getFrameSegments(framedata):
 			# Sleep for as long as the segment has time allocated for transmission
-			#while time.time() - frameStart < (config.frametime * (index / segmentcount) - 0.002):
-			#	time.sleep(0) # Busy wait until we're ready
+			# Small constant factor so we don't overshoot
+			while time.time() - frameStart < (config.frametime * (index / segmentcount) - 0.001):
+				time.sleep(0) # Busy wait until we're ready
 				#time.sleep((config.frametime * (index/segmentcount)) - (currentTime - frameStart))
 			data = struct.pack('>IIII', frameIndex, total, index, len(segment) + 4) + segment + b'\xFF\xFF\xFF\xFF'
 			writeSegmentSend(frameIndex, index, time.time())
@@ -139,9 +141,10 @@ def udpFn(ctrlPipe):
 				print("Connection refused, exiting.")
 				exit(0)
 		frameEnd = time.time()
-		print(f"sending frame {frameIndex} took {frameEnd - frameStart:.3f} seconds (1/60 = {1/60:.3f})")
+		print(f"sending frame {frameIndex} took {frameEnd - frameStart:.3f} seconds (1/{config.framerate} = {1.0/config.framerate:.3f})")
 		ctrlPipe.send(config.UDPSENDTIME + struct.pack(">dd", frameStart, frameEnd))
-		while (time.time() < frameStart + config.frametime - 0.001): # allow some time to read the file
+		# Small constant so we don't overshoot
+		while (time.time() < frameStart + config.frametime - 0.001):
 			time.sleep(0)
 	# At the end of the run, sleep for 10s to allow file writes on remote
 	print(f"Sender sending all frames took {time.time() - senderStart}")
