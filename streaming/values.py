@@ -14,7 +14,7 @@ class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		self.experimentTime = 5
 		# Frame rate & time
-		self.framerate = 60
+		self.framerate = 25
 		self.frametime = 1/self.framerate
 		# Amount of frames to send
 		self.loopLength = self.experimentTime * self.framerate
@@ -93,6 +93,8 @@ class Configuration:
 			# File size should fit within memory to avoid everything breaking
 			# But that seems like a reasonable assumption in this case
 			data = f.read()
+			print(time.time())
+			print("^^^^ Sender has just read the next frame at the above time.")
 			return data
 
 	def getFrameSegmentCount(self, frameData):

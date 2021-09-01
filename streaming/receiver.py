@@ -293,7 +293,7 @@ def udpFn(ctrlPipe: mp.Pipe):
 				handleMessages(ctrlPipe)
 			# Put content first so we record time after recv
 			# Else our time stamp is wrong
-			receivedData.append((s.recv(1300), getTime(timeOffset)))
+			receivedData.append((s.recv(config.frameSegmentSize+20), getTime(timeOffset)))
 		except socket.timeout as e:
 			print("Assuming send is over...")
 			if not haveToExit:
