@@ -217,9 +217,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 				with open(config.getImgOutFilename(filename), 'wb') as f:
 					for segmentIndex in range(segmentCount):
 						if frameData[frameIndex][segmentIndex][1] is None:
-
 							if frameIndex != 0 and segmentIndex in frameData[frameIndex-1]:
-								frameData[frameIndex][segmentIndex] = frameData[frameIndex-1][segmentIndex]
+								frameData[frameIndex][segmentIndex][1] = frameData[frameIndex-1][segmentIndex][1]
 						if frameData[frameIndex][segmentIndex][1] is not None:
 							f.write(frameData[frameIndex][segmentIndex][1])
 						else:
