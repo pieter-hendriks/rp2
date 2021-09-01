@@ -264,8 +264,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 	s.bind((config.receiver, config.udpport))
 	s.connect((config.sender, config.udpport))
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 67108860)
-	assert s.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF) == 67108860 * 2
+	s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, config.buffer)
+	assert s.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF) == config.buffer * 2
 	s.send(b"0") # Any content works, we just notify sender we're alive
 	recvStart = time.time()
 	# without this addition, sender would crash if started first

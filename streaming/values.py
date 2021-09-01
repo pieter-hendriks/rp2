@@ -14,12 +14,13 @@ class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		self.experimentTime = 5
 		# Frame rate & time
-		self.framerate = 60
+		self.framerate = 120
 		self.frametime = 1/self.framerate
 		# Amount of frames to send
 		self.loopLength = self.experimentTime * self.framerate
 		assert self.loopLength < 4922 # 0 until 4920 = 4921 frames
-
+		# Set a buffer size
+		self.buffer = 268435456
 		# IP CONFIG
 		if runlocal:
 			self.sender = '127.0.2.1'

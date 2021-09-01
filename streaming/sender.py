@@ -105,8 +105,8 @@ def udpFn(ctrlPipe):
 	# socket.SOCK_STREAM for tcp, socket.SOCK_DGRAM for UDP
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind((config.sender, config.udpport))
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 67108860)
-	assert s.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF) == 67108860 * 2
+	s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, config.buffer)
+	assert s.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF) == config.buffer * 2
 	alive = False
 	while (not alive):
 		s.setblocking(False)
