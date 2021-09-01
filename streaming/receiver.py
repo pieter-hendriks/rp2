@@ -140,6 +140,8 @@ frameData = {}
 timeOffset = 0
 segmentCounts = {}
 
+haveToExit = False
+
 
 receivedData = []
 
@@ -251,12 +253,12 @@ def udpFn(ctrlPipe: mp.Pipe):
 
 
 	def handleMessages(pipe):
-		global timeOffset, exitWhenDone
+		global timeOffset, haveToExit
 		msg = ctrlPipe.recv()
 		# Handle exit
 		if msg[:len(config.EXITSTRING)] == config.EXITSTRING:
 			print("UDP RECEIVED EXIT")
-			doExit()
+			haveToExit = True
 		elif msg[:len(config.NTPOFFSET)] == config.NTPOFFSET:
 			timeOffset = struct.unpack('>d', msg[len(config.NTPOFFSET):])[0]
 			writeOffset(timeOffset)
@@ -291,6 +293,8 @@ def udpFn(ctrlPipe: mp.Pipe):
 			receivedData.append((s.recv(1300), getTime(timeOffset)))
 		except socket.timeout as e:
 			print("Assuming send is over...")
+			if not haveToExit:
+				print("Something fishy; we don't have exit flag set but we are timed out,")
 			break
 		except Exception as e:
 			print("Unexpected error in receiving data fn")
