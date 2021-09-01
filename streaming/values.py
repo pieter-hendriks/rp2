@@ -7,14 +7,14 @@ import random
 
 lan = False
 randomFrameData = False
-use4k = False
+use4k = True
 runlocal = False
 
 class Configuration:
 	def __init__(self, useLAN, useRandomFrameData):
 		self.experimentTime = 5
 		# Frame rate & time
-		self.framerate = 120
+		self.framerate = 60
 		self.frametime = 1/self.framerate
 		# Amount of frames to send
 		self.loopLength = self.experimentTime * self.framerate

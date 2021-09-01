@@ -23,8 +23,11 @@ launchLocalStuff &
 
 wait $!
 echo "Local is finished. "
-echo "Sleeping for up to 10 seconds, allowing remote to handle frame writing."
-sleep 10
-echo "Killing remote!"
-sshpass -p "rover" ssh rover@${ROBOT} "source killRobot.sh"
+#echo "Sleeping for up to 10 seconds, allowing remote to handle frame writing."
+#sleep 10
+#echo "Killing remote!"
+#sshpass -p "rover" ssh rover@${ROBOT} "source killRobot.sh"
+echo "Waiting for remote to finish..."
+echo "If this takes too long, please check remote to see if anything has gone wrong."
+echo "/home/rover/killRobot.sh script can fix this, probably."
 wait
